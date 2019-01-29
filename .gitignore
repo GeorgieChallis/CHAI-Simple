@@ -328,3 +328,5 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+/external/CHAI3D/modules/ODE/examples/GLFW/07-ODE-articulations
+/external/CHAI3D
