@@ -52,8 +52,8 @@ int swapInterval = 1;
 //----------------------------------------
 // SETUP RIFT
 //----------------------------------------
-//cOVRRenderContext renderContext;
-//cOVRDevice oculusVR;
+cOVRRenderContext renderContext;
+cOVRDevice oculusVR;
 
 
 //------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ void close(void);
 void MoveLeft(void);
 void MoveRight(void);
 
-bool trialRunning = false;
+static bool trialRunning = false;
 int trialNumber = 0;
 
 cThread *cubeThread;
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	/*if (!oculusVR.initVR())
+	if (!oculusVR.initVR())
 	{
 		cout << "failed to initialize Oculus" << endl;
 		cSleepMs(1000);
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
 			glfwTerminate();
 			return 1;
 		}
-	}*/
+	}
 
 	// set error callback
 	glfwSetErrorCallback(errorCallback);
@@ -246,9 +246,9 @@ int main(int argc, char* argv[])
 	world->addChild(my_cube);
 
 	// set position
-	my_cube->setLocalPos(0.0, 0.0, 0.0);
+	my_cube->setLocalPos(0, 0, 0);
 
-	cCreateBox(my_cube, 0.4, 0.4, 0.4);
+	cCreateBox(my_cube, cube_size, cube_size, cube_size);
 
 	// create a texture
 	cTexture2dPtr texture = cTexture2d::create();
@@ -376,6 +376,9 @@ void updateGraphics(void)
 	// render world
 	camera->renderView(width, height);
 
+	//set cube pos
+	my_cube->setLocalPos(cube_posX, cube_posY, cube_posZ);
+
 	// wait until all GL commands are completed
 	glFinish();
 
@@ -415,20 +418,20 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_1) {
 		//Start trial 1
 		cout << "Starting Trial 1: Right to Left";
-		cube_posY = 0.5;
-		cube_posZ = 0.2;
+		cube_posZ = 0.5;
+		cube_posY = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
 		}
-
+		else { cout << "Cannot run trial - oops"; }
 	}
 
 	else if (a_key == GLFW_KEY_2) {
 		//Start trial 2
 		cout << "Starting Trial 2: Left to Right";
-		cube_posY = -0.5;
-		cube_posZ = 0.2;
+		cube_posZ = -0.5;
+		cube_posY = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
@@ -442,8 +445,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 
 void MoveLeft() {
 	trialRunning = true;
-	while (cube_posY > -0.5) {
-		cube_posY -= 0.001;
+	while (cube_posZ > -0.5) {
+		cube_posZ -= 0.001;
 		cSleepMs(1);
 		cVector3d object_global = my_cube->getGlobalPos();
 		myfile << object_global << endl;
@@ -458,8 +461,8 @@ void MoveLeft() {
 
 void MoveRight() {
 	trialRunning = true;
-	while (cube_posY < 0.5) {
-		cube_posY += 0.001;
+	while (cube_posZ < 0.5) {
+		cube_posZ += 0.001;
 		cSleepMs(1);
 		cVector3d object_global = my_cube->getGlobalPos();
 		myfile << object_global << endl;

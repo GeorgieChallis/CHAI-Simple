@@ -1,2 +1,7 @@
 ﻿  main.cpp
-c:\users\mw020306\source\repos\chai-simple\testproject\testproject\main.cpp(6): fatal error C1083: Cannot open include file: 'COculus.h': No such file or directory
+c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(155): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(156): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(157): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(158): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
+  testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Partial PDB)
