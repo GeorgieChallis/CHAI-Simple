@@ -8,7 +8,7 @@
 using namespace chai3d;
 using namespace std;
 //------------------------------------------------------------------------------
-
+#include <fstream>
 #include <iostream>
 
 //------------------------------------------------------------------------------
@@ -49,6 +49,12 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
+//----------------------------------------
+// SETUP RIFT
+//----------------------------------------
+//cOVRRenderContext renderContext;
+//cOVRDevice oculusVR;
+
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
@@ -56,6 +62,9 @@ int swapInterval = 1;
 
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
+
+// callback when a key is pressed
+void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods);
 
 // callback when an error GLFW occurs
 void errorCallback(int error, const char* a_description);
@@ -67,11 +76,40 @@ void updateGraphics(void);
 void close(void);
 
 //==============================================================================
+//---------------------------------------------------------------
+/*
+	Georgie's Variables and Functions
+*/
+void MoveLeft(void);
+void MoveRight(void);
+
+bool trialRunning = false;
+int trialNumber = 0;
+
+cThread *cubeThread;
+
+//Values for changing the cube's position/size
+static double cube_posX = 0.0;
+static double cube_posY = 0.0;
+static double cube_posZ = 0.0;
+static double cube_size = 0.2;
+
+ofstream myfile("example.txt", ios::app);
+
+//-----------------------------------------------------------------
+
+
+
+
 
 int main(int argc, char* argv[])
 {
+	cout << endl;
+	cout << "-----------------------------------" << endl;	
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
+
+	time_t now = time(0);
 
 	//--------------------------------------------------------------------------
 	// OPEN GL - WINDOW DISPLAY
@@ -84,6 +122,30 @@ int main(int argc, char* argv[])
 		cSleepMs(1000);
 		return 1;
 	}
+
+	/*if (!oculusVR.initVR())
+	{
+		cout << "failed to initialize Oculus" << endl;
+		cSleepMs(1000);
+	}
+	else {
+		// get oculus display resolution
+		ovrSizei hmdResolution = oculusVR.getResolution();
+
+		// setup mirror display on computer screen
+		ovrSizei windowSize = { hmdResolution.w / 2, hmdResolution.h / 2 };
+
+		// inialize buffers
+		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
+		{
+			cout << "failed to initialize Oculus buffers" << endl;
+			cSleepMs(1000);
+			oculusVR.destroyVR();
+			renderContext.destroy();
+			glfwTerminate();
+			return 1;
+		}
+	}*/
 
 	// set error callback
 	glfwSetErrorCallback(errorCallback);
@@ -118,6 +180,9 @@ int main(int argc, char* argv[])
 	// set resize callback
 	glfwSetWindowSizeCallback(window, windowSizeCallback);
 
+	// set key callback
+	glfwSetKeyCallback(window, keyCallback);
+
 	// set current display contextn
 	glfwMakeContextCurrent(window);
 
@@ -149,7 +214,7 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.0, 0.5, 0.0),    // camera position (eye)
+	camera->set(cVector3d(0.0, 1.5, 0.0),    // camera position (eye)
 		cVector3d(0.2, 0.0, 0.0),    // lookat position (target)
 		cVector3d(0.0, 1.0, 0.0));   // direction of the (up) vector
 
@@ -209,6 +274,31 @@ int main(int argc, char* argv[])
 
 	// Since we don't need to see our polygons from both sides, we enable culling.
 	my_cube->setUseCulling(true);
+
+	// create a normal texture
+	cNormalMapPtr normalMap = cNormalMap::create();
+
+	// load normal map from file
+	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/images/brick-normal.png"));
+	if (!fileload)
+	{
+	#if defined(_MSVC)
+		fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
+	#endif
+	}
+	if (!fileload)
+	{
+		cout << "Error - Normal map failed to load correctly." << endl;
+	}
+
+	// assign normal map to object
+	my_cube->m_normalMap = normalMap;
+
+	// compute surface normals
+	my_cube->computeAllNormals();
+
+	// compute tangent vectors
+	my_cube->computeBTN();
 
 	//--------------------------------------------------------------------------
 	// START SIMULATION
@@ -296,5 +386,87 @@ void updateGraphics(void)
 }
 
 //-----------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
+
+void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+	// filter calls that only include a key press
+	if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
+	{
+		return;
+	}
+
+	// option - exit
+	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+	{
+		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
+	}
+
+	// option - spacebar
+	else if (a_key == GLFW_KEY_SPACE)
+	{
+		//try { oculusVR.recenterPose(); }
+		//catch(exception e){}
+	}
+
+
+	// option - trial 1
+	else if (a_key == GLFW_KEY_1) {
+		//Start trial 1
+		cout << "Starting Trial 1: Right to Left";
+		cube_posY = 0.5;
+		cube_posZ = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
+		}
+
+	}
+
+	else if (a_key == GLFW_KEY_2) {
+		//Start trial 2
+		cout << "Starting Trial 2: Left to Right";
+		cube_posY = -0.5;
+		cube_posZ = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else { cout << "Cannot run trial - oops"; }
+
+	}
+}
+
+//------MOVE CUBE
+
+void MoveLeft() {
+	trialRunning = true;
+	while (cube_posY > -0.5) {
+		cube_posY -= 0.001;
+		cSleepMs(1);
+		cVector3d object_global = my_cube->getGlobalPos();
+		myfile << object_global << endl;
+
+		/*myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
+		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
+		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << endl << endl;*/
+	}
+	trialRunning = false;
+	return;
+}
+
+void MoveRight() {
+	trialRunning = true;
+	while (cube_posY < 0.5) {
+		cube_posY += 0.001;
+		cSleepMs(1);
+		cVector3d object_global = my_cube->getGlobalPos();
+		myfile << object_global << endl;
+	}
+	trialRunning = false;
+	return;
+}
+
 
 //------------------------------------------------------------------------------
