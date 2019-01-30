@@ -54,6 +54,7 @@ int swapInterval = 1;
 //----------------------------------------
 cOVRRenderContext renderContext;
 cOVRDevice oculusVR;
+bool oculusInit = false;
 
 
 //------------------------------------------------------------------------------
@@ -105,7 +106,7 @@ ofstream myfile("example.txt", ios::app);
 int main(int argc, char* argv[])
 {
 	cout << endl;
-	cout << "-----------------------------------" << endl;	
+	cout << "-----------------------------------" << endl;
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
 
@@ -123,9 +124,56 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	// set error callback
+	glfwSetErrorCallback(errorCallback);
+
+	// compute desired size of window
+	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	int w = 0.8 * mode->height;
+	int h = 0.5 * mode->height;
+	int x = 0.5 * (mode->width - w);
+	int y = 0.5 * (mode->height - h);
+
+
+	// set OpenGL version
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+
+	// create display context
+	window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
+	if (!window)
+	{
+		cout << "failed to create window" << endl;
+		cSleepMs(1000);
+		glfwTerminate();
+		return 1;
+	}
+
+	// set key callback
+	glfwSetKeyCallback(window, keyCallback);
+
+	// set current display context
+	glfwMakeContextCurrent(window);
+
+	// sets the swap interval for the current display context
+	glfwSwapInterval(0);
+
+
+#ifdef GLEW_VERSION
+	// initialize GLEW library
+	if (glewInit() != GLEW_OK)
+	{
+		cout << "failed to initialize GLEW library" << endl;
+		glfwTerminate();
+		return 1;
+	}
+#endif
+
+	//initialise oculus
 	if (!oculusVR.initVR())
 	{
 		cout << "failed to initialize Oculus" << endl;
+		oculusInit = false;
 		cSleepMs(1000);
 	}
 	else {
@@ -139,65 +187,29 @@ int main(int argc, char* argv[])
 		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
 		{
 			cout << "failed to initialize Oculus buffers" << endl;
+			oculusInit = false;
 			cSleepMs(1000);
 			oculusVR.destroyVR();
-			renderContext.destroy();
-			glfwTerminate();
-			return 1;
+			//renderContext.destroy();
+			//glfwTerminate();
+		}
+		else {
+			oculusInit = true;
+			glfwSetWindowSize(window, windowSize.w, windowSize.h);
 		}
 	}
 
-	// set error callback
-	glfwSetErrorCallback(errorCallback);
+	if (!oculusInit) {
+		// get width and height of window
+		glfwGetWindowSize(window, &width, &height);
 
-	// compute desired size of window
-	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	int w = 0.8 * mode->height;
-	int h = 0.5 * mode->height;
-	int x = 0.5 * (mode->width - w);
-	int y = 0.5 * (mode->height - h);
+		// set position of window
+		glfwSetWindowPos(window, x, y);
 
-	// set OpenGL version
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-
-	// create display context
-	window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
-	if (!window)
-	{
-		cout << "failed to create window" << endl;
-		cSleepMs(1000);
-		glfwTerminate();
-		return 1;
+		// set resize callback
+		glfwSetWindowSizeCallback(window, windowSizeCallback);
 	}
 
-	// get width and height of window
-	glfwGetWindowSize(window, &width, &height);
-
-	// set position of window
-	glfwSetWindowPos(window, x, y);
-
-	// set resize callback
-	glfwSetWindowSizeCallback(window, windowSizeCallback);
-
-	// set key callback
-	glfwSetKeyCallback(window, keyCallback);
-
-	// set current display contextn
-	glfwMakeContextCurrent(window);
-
-	// sets the swap interval for the current display context
-	glfwSwapInterval(swapInterval);
-
-#ifdef GLEW_VERSION
-	// initialize GLEW library
-	if (glewInit() != GLEW_OK)
-	{
-		cout << "failed to initialize GLEW library" << endl;
-		glfwTerminate();
-		return 1;
-	}
-#endif
 
 	//--------------------------------------------------------------------------
 	// WORLD - CAMERA - LIGHTING
@@ -256,9 +268,9 @@ int main(int argc, char* argv[])
 	bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
 	if (!fileload)
 	{
-	#if defined(_MSVC)
+#if defined(_MSVC)
 		fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
-	#endif
+#endif
 	}
 	if (!fileload)
 	{
@@ -282,9 +294,9 @@ int main(int argc, char* argv[])
 	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/images/brick-normal.png"));
 	if (!fileload)
 	{
-	#if defined(_MSVC)
+#if defined(_MSVC)
 		fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
-	#endif
+#endif
 	}
 	if (!fileload)
 	{
@@ -307,16 +319,53 @@ int main(int argc, char* argv[])
 	atexit(close);
 
 	// call window size callback at initialization
-	windowSizeCallback(window, width, height);
+	//windowSizeCallback(window, width, height);
+
+	if (oculusInit) {
+		oculusVR.recenterPose();
+	}
 
 	// main graphic loop
 	while (!glfwWindowShouldClose(window))
 	{
-		// get width and height of window
-		glfwGetWindowSize(window, &width, &height);
+		if (oculusInit) {
+			int width, height;
+			glfwGetFramebufferSize(window, &width, &height);
 
-		// render graphics
-		updateGraphics();
+			oculusVR.onRenderStart();
+
+			// render frame for each eye
+			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
+			{
+				// retrieve projection and modelview matrix from oculus
+				cTransform projectionMatrix, modelViewMatrix;
+				oculusVR.onEyeRender(eyeIndex, projectionMatrix, modelViewMatrix);
+
+				camera->m_useCustomProjectionMatrix = true;
+				camera->m_projectionMatrix = projectionMatrix;
+
+				camera->m_useCustomModelViewMatrix = true;
+				camera->m_modelViewMatrix = modelViewMatrix;
+
+				// render world
+				ovrSizei size = oculusVR.getEyeTextureSize(eyeIndex);
+				camera->renderView(size.w, size.h, C_STEREO_LEFT_EYE, false);
+
+				// finalize rendering  
+				oculusVR.onEyeRenderFinish(eyeIndex);
+			}
+
+			// update frames
+			oculusVR.submitFrame();
+			oculusVR.blitMirror();
+		}
+		else {
+			// get width and height of window
+			glfwGetWindowSize(window, &width, &height);
+
+			// render graphics
+			updateGraphics();
+		}
 
 		// swap buffers
 		glfwSwapBuffers(window);
@@ -473,3 +522,4 @@ void MoveRight() {
 
 
 //------------------------------------------------------------------------------
+

@@ -106,7 +106,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../etxernal/CHAI3D/modules/OCULUS/external/oculusSDK/Logging/include;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVRKernel/Src/Kernel;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Src;../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -143,7 +143,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../etxernal/CHAI3D/modules/OCULUS/external/oculusSDK/Logging/include;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVRKernel/Src/Kernel;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Src;../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>

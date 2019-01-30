@@ -1,12 +1,12 @@
 ﻿  main.cpp
-main.cpp(155): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(156): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(157): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(158): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(132): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(133): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(134): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(135): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   Generating code
-  59 of 323 functions (18.3%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    4 functions had inline decision re-evaluated but remain unchanged
+  61 of 325 functions (18.8%) were compiled, the rest were copied from previous compilation.
+    2 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
-  testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
+  testProject.vcxproj -> C:\Users\mw020306\source\repos\CHAI-Simple\testProject\testProject\../../bin/win-x64\testProject.exe
   testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Full PDB)
