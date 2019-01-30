@@ -1,3 +1,4 @@
+#include <windows.h> 
 //Minimal Program for OpenGL to work (display a sphere)
 //------------------------------------------------------------------------------
 #include "chai3d.h"
@@ -10,6 +11,8 @@ using namespace std;
 //------------------------------------------------------------------------------
 #include <fstream>
 #include <iostream>
+
+HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -106,20 +109,19 @@ ofstream myfile("example.txt", ios::app);
 int main(int argc, char* argv[])
 {
 	cout << endl;
-	cout << "-----------------------------------" << endl;
+	cout << "----------------------------------------" << endl;
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
-
-	time_t now = time(0);
 
 	//--------------------------------------------------------------------------
 	// OPEN GL - WINDOW DISPLAY
 	//--------------------------------------------------------------------------
 
 	// initialize GLFW library
+	cout << "Checking for OpenGL libraries..." << endl;
 	if (!glfwInit())
 	{
-		cout << "failed initialization" << endl;
+		cout << "GLFW initialisation failed - Check included libraries" << endl;
 		cSleepMs(1000);
 		return 1;
 	}
@@ -140,10 +142,12 @@ int main(int argc, char* argv[])
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
 	// create display context
-	window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
+	cout << "Creating context window..." << endl;
+	window = glfwCreateWindow(w, h, "CHAI3D Test", NULL, NULL);
 	if (!window)
 	{
-		cout << "failed to create window" << endl;
+		cout << "Failed to create window." << endl;
+		cout << "Please close existing windows and retry" << endl;
 		cSleepMs(1000);
 		glfwTerminate();
 		return 1;
@@ -163,18 +167,23 @@ int main(int argc, char* argv[])
 	// initialize GLEW library
 	if (glewInit() != GLEW_OK)
 	{
-		cout << "failed to initialize GLEW library" << endl;
+		cout << "Failed to initialize GLEW library - did you mean to include this?" << endl;
 		glfwTerminate();
 		return 1;
 	}
 #endif
 
 	//initialise oculus
+	cout << "Searching for Oculus Rift..." << endl;
 	if (!oculusVR.initVR())
 	{
-		cout << "failed to initialize Oculus" << endl;
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		cout << "Failed to initialize Oculus." << endl;
+		cout << "Check HDMI and USB are connected" << endl;
 		oculusInit = false;
 		cSleepMs(1000);
+		SetConsoleTextAttribute(hConsole, 7);
+		cout << "Opening in static screen mode." << endl << endl;
 	}
 	else {
 		// get oculus display resolution
@@ -186,7 +195,7 @@ int main(int argc, char* argv[])
 		// inialize buffers
 		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
 		{
-			cout << "failed to initialize Oculus buffers" << endl;
+			cout << "Failed to initialize Oculus buffers. Check the headset view for troubleshooting tips." << endl;
 			oculusInit = false;
 			cSleepMs(1000);
 			oculusVR.destroyVR();
@@ -265,6 +274,8 @@ int main(int argc, char* argv[])
 	// create a texture
 	cTexture2dPtr texture = cTexture2d::create();
 
+	cout << "Loading textures..." << endl;
+
 	bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
 	if (!fileload)
 	{
@@ -274,6 +285,7 @@ int main(int argc, char* argv[])
 	}
 	if (!fileload)
 	{
+		cout << "Cube texture failed to load correctly." << endl;
 		// set material color
 		my_cube->m_material->setRedFireBrick();
 	}
@@ -286,6 +298,8 @@ int main(int argc, char* argv[])
 
 	// Since we don't need to see our polygons from both sides, we enable culling.
 	my_cube->setUseCulling(true);
+
+	cout << "Loading normal map..." << endl;
 
 	// create a normal texture
 	cNormalMapPtr normalMap = cNormalMap::create();
@@ -300,7 +314,7 @@ int main(int argc, char* argv[])
 	}
 	if (!fileload)
 	{
-		cout << "Error - Normal map failed to load correctly." << endl;
+		cout << "Normal map failed to load correctly - bump not applied." << endl;
 	}
 
 	// assign normal map to object
@@ -320,9 +334,13 @@ int main(int argc, char* argv[])
 
 	// call window size callback at initialization
 	//windowSizeCallback(window, width, height);
+	cout << "Solution loaded." << endl << endl;
+
+	cout << "Press [1] for trial 1, [2] for trial 2." << endl;
 
 	if (oculusInit) {
 		oculusVR.recenterPose();
+		cout << "Centred HMD view." << endl;
 	}
 
 	// main graphic loop
@@ -466,26 +484,26 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	// option - trial 1
 	else if (a_key == GLFW_KEY_1) {
 		//Start trial 1
-		cout << "Starting Trial 1: Right to Left";
+		cout << "Starting Trial 1: Right to Left" << endl;
 		cube_posZ = 0.5;
 		cube_posY = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
 		}
-		else { cout << "Cannot run trial - oops"; }
+		else { cout << "Error: Finish previous trial before next one." << endl; }
 	}
 
 	else if (a_key == GLFW_KEY_2) {
 		//Start trial 2
-		cout << "Starting Trial 2: Left to Right";
+		cout << "Starting Trial 2: Left to Right" << endl;
 		cube_posZ = -0.5;
 		cube_posY = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
 		}
-		else { cout << "Cannot run trial - oops"; }
+		else { cout << "Error: Finish previous trial before next one."; }
 
 	}
 }
