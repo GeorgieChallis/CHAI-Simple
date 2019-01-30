@@ -291,7 +291,7 @@ int main(int argc, char* argv[])
 	cNormalMapPtr normalMap = cNormalMap::create();
 
 	// load normal map from file
-	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/images/brick-normal.png"));
+	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
 	if (!fileload)
 	{
 #if defined(_MSVC)
