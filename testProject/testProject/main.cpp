@@ -195,12 +195,14 @@ int main(int argc, char* argv[])
 		// inialize buffers
 		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
 		{
+			SetConsoleTextAttribute(hConsole, 4);
 			cout << "Failed to initialize Oculus buffers. Check the headset view for troubleshooting tips." << endl;
 			oculusInit = false;
 			cSleepMs(1000);
 			oculusVR.destroyVR();
 			//renderContext.destroy();
 			//glfwTerminate();
+			SetConsoleTextAttribute(hConsole, 7);
 		}
 		else {
 			oculusInit = true;
@@ -285,7 +287,9 @@ int main(int argc, char* argv[])
 	}
 	if (!fileload)
 	{
-		cout << "Cube texture failed to load correctly." << endl;
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
+		SetConsoleTextAttribute(hConsole, 7);
 		// set material color
 		my_cube->m_material->setRedFireBrick();
 	}
@@ -314,7 +318,9 @@ int main(int argc, char* argv[])
 	}
 	if (!fileload)
 	{
-		cout << "Normal map failed to load correctly - bump not applied." << endl;
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
+		SetConsoleTextAttribute(hConsole, 7);
 	}
 
 	// assign normal map to object
@@ -415,7 +421,9 @@ void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 
 void errorCallback(int a_error, const char* a_description)
 {
+	SetConsoleTextAttribute(hConsole, 4);
 	cout << "Error: " << a_description << endl;
+	SetConsoleTextAttribute(hConsole, 7);
 }
 
 //-----------------------------------------------------------------------------
@@ -452,7 +460,9 @@ void updateGraphics(void)
 	// check for any OpenGL errors
 	GLenum err;
 	err = glGetError();
+	SetConsoleTextAttribute(hConsole, 4);
 	if (err != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(err);
+	SetConsoleTextAttribute(hConsole, 7);
 }
 
 //-----------------------------------------------------------------------------
@@ -491,7 +501,10 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread = new cThread();
 			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
 		}
-		else { cout << "Error: Finish previous trial before next one." << endl; }
+		else { 
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			cout << "Warning: Finish previous trial before next one." << endl; }
+			SetConsoleTextAttribute(hConsole, 7);
 	}
 
 	else if (a_key == GLFW_KEY_2) {
@@ -503,8 +516,38 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread = new cThread();
 			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
 		}
-		else { cout << "Error: Finish previous trial before next one."; }
+		else { 
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			cout << "Error: Finish previous trial before next one." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+	}
+	else if (a_key == GLFW_KEY_3) {
+		//Rotate X
+		cMatrix3d Rotator = cMatrix3d();
+		Rotator.setAxisAngleRotationDeg(1, 0, 0, 20);
 
+		cMatrix3d CurrentAngle = my_cube->getLocalRot();
+
+		my_cube->setLocalRot(Rotator*CurrentAngle);
+	}
+	else if (a_key == GLFW_KEY_4) {
+		//Rotate Y
+		cMatrix3d Rotator = cMatrix3d();
+		Rotator.setAxisAngleRotationDeg(0, 1, 0, 20);
+
+		cMatrix3d CurrentAngle = my_cube->getLocalRot();
+
+		my_cube->setLocalRot(Rotator*CurrentAngle);
+	}
+		else if (a_key == GLFW_KEY_5) {
+		//Rotate Z
+		cMatrix3d Rotator = cMatrix3d();
+		Rotator.setAxisAngleRotationDeg(0, 0, 1, 20);
+
+		cMatrix3d CurrentAngle = my_cube->getLocalRot();
+
+		my_cube->setLocalRot(Rotator*CurrentAngle);
 	}
 }
 
