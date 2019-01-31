@@ -1,4 +1,3 @@
-#include <windows.h> 
 //Minimal Program for OpenGL to work (display a sphere)
 //------------------------------------------------------------------------------
 #include "chai3d.h"
@@ -18,9 +17,6 @@ using namespace std;
 //#include "DataStreamClient.h"
 
 #include <stdio.h>
-
-#include <iostream>
-#include <fstream>
 #include <cassert>
 #include <cstdlib>
 #include <ctime>
@@ -128,13 +124,10 @@ static double cube_posY = 0.0;
 static double cube_posZ = 0.0;
 static double cube_size = 0.2;
 
-ofstream myfile("example.txt", ios::app);
+ofstream chaifile("hmd-chaipos.txt", ios::app);
+ofstream viconfile("hmd-viconpos.txt", ios::app);
 
 //-----------------------------------------------------------------
-
-
-
-
 
 int main(int argc, char* argv[])
 {
@@ -165,7 +158,6 @@ int main(int argc, char* argv[])
 	int h = 0.5 * mode->height;
 	int x = 0.5 * (mode->width - w);
 	int y = 0.5 * (mode->height - h);
-
 
 	// set OpenGL version
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
@@ -374,27 +366,9 @@ int main(int argc, char* argv[])
 
 	cout << "Press [1] for trial 1, [2] for trial 2." << endl;
 
-	if (oculusInit) {
-		myfile << "Initial headset position-------" << endl;
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << endl << endl;
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ", ";
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ", ";
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << "]" << endl << endl;
-		
+	if (oculusInit) {		
 		oculusVR.recenterPose();
 		cout << "Centred HMD view." << endl;
-		
-		myfile << "Centred HMD view-----------" << endl;
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << endl << endl;
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ", ";
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ", ";
-		myfile << "[" << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << "]" << endl << endl;
 	}
 
 	// main graphic loop
@@ -534,8 +508,10 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	// option - spacebar
 	else if (a_key == GLFW_KEY_SPACE)
 	{
-		//try { oculusVR.recenterPose(); }
-		//catch(exception e){}
+		if(oculusInit) { 	
+			PrintHMDPos();
+			oculusVR.recenterPose(); 
+		}
 	}
 
 
@@ -606,12 +582,6 @@ void MoveLeft() {
 	while (cube_posZ > -0.5) {
 		cube_posZ -= 0.001;
 		cSleepMs(1);
-		cVector3d object_global = my_cube->getGlobalPos();
-		myfile << object_global << endl;
-
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
-		myfile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << endl << endl;
 	}
 	trialRunning = false;
 	return;
@@ -625,6 +595,16 @@ void MoveRight() {
 	}
 	trialRunning = false;
 	return;
+}
+
+void PrintHMDPos() {
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << "|";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << endl << endl;
 }
 
 
