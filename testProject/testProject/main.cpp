@@ -102,6 +102,8 @@ void errorCallback(int error, const char* a_description);
 // this function renders the scene
 void updateGraphics(void);
 
+void PrintHMDPos();
+
 // this function closes the application
 void close(void);
 
@@ -124,7 +126,7 @@ static double cube_posY = 0.0;
 static double cube_posZ = 0.0;
 static double cube_size = 0.2;
 
-ofstream chaifile("hmd-chaipos.txt", ios::app);
+ofstream chaifile("hmd-chaipos.csv", ios::app);
 ofstream viconfile("hmd-viconpos.txt", ios::app);
 
 //-----------------------------------------------------------------
@@ -379,6 +381,7 @@ int main(int argc, char* argv[])
 			glfwGetFramebufferSize(window, &width, &height);
 
 			oculusVR.onRenderStart();
+			PrintHMDPos();
 
 			// render frame for each eye
 			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
@@ -598,12 +601,12 @@ void MoveRight() {
 }
 
 void PrintHMDPos() {
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ", ";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ", ";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << "|";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ", ";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ", ";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ", ";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ",";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ",";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << ",";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ",";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ",";
+	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ",";
 	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << endl << endl;
 }
 
