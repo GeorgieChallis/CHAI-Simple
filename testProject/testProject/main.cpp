@@ -1,43 +1,38 @@
-//Minimal Program for OpenGL to work (display a sphere)
-//------------------------------------------------------------------------------
+//-----------------------------------
+//CHAI3D
 #include "chai3d.h"
-//------------------------------------------------------------------------------
+//OpenGL Wrapper
 #include <GLFW/glfw3.h>
+
+//OCULUS SDK
 #include "COculus.h"
-//------------------------------------------------------------------------------
-using namespace chai3d;
-using namespace std;
-//------------------------------------------------------------------------------
+
+//For VICON Code
 #include <fstream>
 #include <iostream>
-
-
-//---------FOR VICON
-#define _CRT_SECURE_NO_WARNINGS
-//#include "DataStreamClient.h"
-
 #include <stdio.h>
 #include <cassert>
 #include <cstdlib>
 #include <ctime>
 #include <vector>
 #include <string.h>
-
+#include <time.h>
 #ifdef WIN32
 #include <conio.h>   // For _kbhit()
 #include <cstdio>   // For getchar()
 #include <windows.h> // For Sleep()
-#else
-#include <conio.h>   // For _kbhit()
-#include <cstdio>   // For getchar()
-#include <windows.h> // For Sleep()
- // #include <unistd.h> // For sleep()
 #endif // WIN32
 
-#include <time.h>
+#define _CRT_SECURE_NO_WARNINGS
 
-//-------------------
+//#include "DataStreamClient.h"
 
+//------------------------------------------------------------------------------
+using namespace chai3d;
+using namespace std;
+//------------------------------------------------------------------------------
+
+//------------------
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 //------------------------------------------------------------------------------
@@ -79,11 +74,22 @@ int height = 0;
 int swapInterval = 1;
 
 //----------------------------------------
+//	SETUP MICROBIT - Serial
+//----------------------------------------
+
+
+
+
+//----------------------------------------
 // SETUP RIFT
 //----------------------------------------
 cOVRRenderContext renderContext;
 cOVRDevice oculusVR;
 bool oculusInit = false;
+
+// ------ LOGGING -----------
+ofstream chaifile("hmd-chaipos.csv", ios::app);
+ofstream viconfile("hmd-viconpos.txt", ios::app);
 
 
 //------------------------------------------------------------------------------
@@ -102,18 +108,20 @@ void errorCallback(int error, const char* a_description);
 // this function renders the scene
 void updateGraphics(void);
 
+//Print headset position to file
 void PrintHMDPos();
+
+//Move Cube
+void MoveLeft(void);
+void MoveRight(void);
+void RotateCube(int x, int y, int z, double degrees);
 
 // this function closes the application
 void close(void);
 
 //==============================================================================
 //---------------------------------------------------------------
-/*
-	Georgie's Variables and Functions
-*/
-void MoveLeft(void);
-void MoveRight(void);
+
 
 static bool trialRunning = false;
 int trialNumber = 0;
@@ -125,9 +133,6 @@ static double cube_posX = 0.0;
 static double cube_posY = 0.0;
 static double cube_posZ = 0.0;
 static double cube_size = 0.2;
-
-ofstream chaifile("hmd-chaipos.csv", ios::app);
-ofstream viconfile("hmd-viconpos.txt", ios::app);
 
 //-----------------------------------------------------------------
 
@@ -470,7 +475,6 @@ void close(void)
 
 void updateGraphics(void)
 {
-	/////////////////////////////////////////////////////////////////////
 	// RENDER SCENE
 
 	// render world
@@ -551,34 +555,19 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	}
 	else if (a_key == GLFW_KEY_3) {
 		//Rotate X
-		cMatrix3d Rotator = cMatrix3d();
-		Rotator.setAxisAngleRotationDeg(1, 0, 0, 20);
-
-		cMatrix3d CurrentAngle = my_cube->getLocalRot();
-
-		my_cube->setLocalRot(Rotator*CurrentAngle);
+		RotateCube(1, 0, 0, 10);
 	}
 	else if (a_key == GLFW_KEY_4) {
 		//Rotate Y
-		cMatrix3d Rotator = cMatrix3d();
-		Rotator.setAxisAngleRotationDeg(0, 1, 0, 20);
-
-		cMatrix3d CurrentAngle = my_cube->getLocalRot();
-
-		my_cube->setLocalRot(Rotator*CurrentAngle);
+		RotateCube(0, 1, 0, 10);
 	}
-		else if (a_key == GLFW_KEY_5) {
+	else if (a_key == GLFW_KEY_5) {
 		//Rotate Z
-		cMatrix3d Rotator = cMatrix3d();
-		Rotator.setAxisAngleRotationDeg(0, 0, 1, 20);
-
-		cMatrix3d CurrentAngle = my_cube->getLocalRot();
-
-		my_cube->setLocalRot(Rotator*CurrentAngle);
+		RotateCube(0, 0, 1, 10);
 	}
 }
 
-//------MOVE CUBE
+//------MOVE CUBE METHODS----------------------
 
 void MoveLeft() {
 	trialRunning = true;
@@ -598,6 +587,17 @@ void MoveRight() {
 	}
 	trialRunning = false;
 	return;
+}
+
+void RotateCube(int x, int y, int z, double degrees)
+{
+	int Xaxis = x, Yaxis = y, Zaxis = z;
+	double angle = degrees;
+
+	cMatrix3d Rotator = cMatrix3d();
+	Rotator.setAxisAngleRotationDeg(Xaxis, Yaxis, Zaxis, angle);
+	cMatrix3d CurrentAngle = my_cube->getLocalRot();
+	my_cube->setLocalRot(Rotator*CurrentAngle);
 }
 
 void PrintHMDPos() {
