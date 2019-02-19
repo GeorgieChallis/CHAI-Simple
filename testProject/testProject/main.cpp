@@ -1,3 +1,7 @@
+#include "SerialPort.h"
+#include "Defaults.h"
+
+#include "DataStreamClient.h"
 //-----------------------------------
 //CHAI3D
 #include "chai3d.h"
@@ -25,12 +29,22 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-//#include "DataStreamClient.h"
+
+
+
+
+// FOR C++ Serial Port Class
+
+
+// -------------------------
 
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
 //------------------------------------------------------------------------------
+
+
+
 
 //------------------
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);

@@ -1,7 +1,5 @@
-﻿  main.cpp
-c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(155): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(156): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(157): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-c:\users\gchal\source\repos\testproject\testproject\testproject\main.cpp(158): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+﻿  SerialPort.cpp
+c:\users\gchal\downloads\racecar-communication-interface-master\racecar-communication-interface-master\racecar communication interface\src\serialport.cpp(119): warning C4838: conversion from 'uint8_t' to 'char' requires a narrowing conversion
+c:\users\gchal\downloads\racecar-communication-interface-master\racecar-communication-interface-master\racecar communication interface\src\serialport.cpp(238): warning C4018: '>=': signed/unsigned mismatch
   testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
   testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Partial PDB)

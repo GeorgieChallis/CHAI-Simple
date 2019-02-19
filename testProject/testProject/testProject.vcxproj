@@ -19,7 +19,16 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\SerialPort.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\Defaults.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\SerialPort.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -143,7 +152,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>../;../../external/VICON/;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/Logging/include;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVRKernel/Src/Kernel;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Src;../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../external/SerialCom;../;../../external/VICON/;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/Logging/include;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVRKernel/Src/Kernel;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Src;../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PreprocessorDefinitions>WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
