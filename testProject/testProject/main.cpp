@@ -1,4 +1,5 @@
 //-----------------------------------
+#pragma region
 
 //CHAI3D
 #include "chai3d.h"
@@ -10,6 +11,7 @@
 #include "DataStreamClient.h"
 // FOR C++ Serial Port Class
 #include "SerialPort.h"
+#include "SerialPort.cpp"
 #include "Defaults.h"
 
 #include <fstream>
@@ -28,14 +30,18 @@
 #include <windows.h> // For Sleep()
 #endif // WIN32
 
-//-Namespaces------------------------------------------------------------------------------
+#pragma endregion Includes
+
+#pragma region
+//-Namespaces-------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
 using namespace ViconDataStreamSDK::CPP;
 //------------------------------------------------------------------------------
+#pragma  endregion Namespaces
 
-
-//------------------------------------------------------------------------------
+#pragma region
+//---------------------------------------------------------------------------
 // DECLARED VARIABLES
 //---------------------------------------------------------------------------
 // ------ LOGGING -----------
@@ -71,18 +77,39 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
-//----------------------------------------
-//	SETUP MICROBIT - Serial
-//----------------------------------------
+static bool trialRunning = false;
+int trialNumber = 0;
 
+cThread *cubeThread;
 
+//Values for changing the cube's position/size
+static double cube_posX = 0.0;
+static double cube_posY = 0.0;
+static double cube_posZ = 0.0;
+static double cube_size = 0.2;
+
+//-----------------------------------------------------------------
+
+#pragma endregion Global variables - CHAI
+
+#pragma region
+//----------------------------------------
+//	SETUP Serial
+//----------------------------------------
+SerialPort serialPort;
+
+#pragma endregion Global variables - Serial Port
+
+#pragma region
 //----------------------------------------
 // SETUP RIFT
 //----------------------------------------
 cOVRRenderContext renderContext;
 cOVRDevice oculusVR;
 bool oculusInit = false;
+#pragma endregion Global variables - Oculus
 
+#pragma region
 //---------
 //  VICON
 //---------
@@ -239,8 +266,9 @@ bool Hit()
 	return hit;
 }
 #endif
+#pragma endregion Global variables - VICON
 
-
+#pragma region
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -269,22 +297,10 @@ void RotateCube(int x, int y, int z, double degrees);
 void close(void);
 
 //==============================================================================
-
-static bool trialRunning = false;
-int trialNumber = 0;
-
-cThread *cubeThread;
-
-//Values for changing the cube's position/size
-static double cube_posX = 0.0;
-static double cube_posY = 0.0;
-static double cube_posZ = 0.0;
-static double cube_size = 0.2;
-
-//-----------------------------------------------------------------
+#pragma endregion Declared variables
 
 int main(int argc, char* argv[])
-{
+{	
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
 
@@ -299,6 +315,8 @@ int main(int argc, char* argv[])
 
 	string datetime = (string)asctime(timeinfo);
 	std::cout << "Session Start: " << datetime << endl;
+	std::cout << "Make sure all I/O devices are correctly connected now." << endl;
+
 	std::cout << "Type file name for logging (no spaces)" << endl;
 	string filename;
 	cin >> filename;
@@ -316,8 +334,20 @@ int main(int argc, char* argv[])
 #pragma endregion Log_Setup
 
 #pragma region
-	//VICON-------------------------------------------
-//	#define output_stream if(!LogFile.empty()) ; else std::cout 
+	std::cout << "Looking for Serial Connection..." << std::endl;
+
+	bool serialOK = serialPort.connect();
+	if(serialOK) {}
+	else {
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		std::cout << "No USB peripheral found. Keyboard interaction only." << endl << endl;
+		SetConsoleTextAttribute(hConsole, 7);
+	}
+#pragma endregion Serial_Setup
+
+#pragma region
+//VICON-------------------------------------------
+//#define output_stream if(!LogFile.empty()) ; else std::cout 
 
 	string HostName = "localhost:801"; //"134.225.86.151"
 	unsigned int ClientBufferSize = 0;
@@ -340,7 +370,7 @@ int main(int argc, char* argv[])
 				if (!viconConnected)
 				{
 					connectAttempts++;
-					std::cout << "." << endl;
+					std::cout << ".";
 					if (connectAttempts > 2) { break; }
 				}
 #ifdef WIN32
@@ -353,7 +383,7 @@ int main(int argc, char* argv[])
 		}
 		if (!viconConnected) {
 			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
+			std::cout << endl << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
 			SetConsoleTextAttribute(hConsole, 7);
 		}
 		else {

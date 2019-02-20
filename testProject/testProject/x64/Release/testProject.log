@@ -1,12 +1,14 @@
 ﻿  main.cpp
-main.cpp(560): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(561): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(562): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(563): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Users\gchal\source\repos\testProject\external\SerialCom\SerialPort.cpp(119): warning C4838: conversion from 'uint8_t' to 'char' requires a narrowing conversion
+C:\Users\gchal\source\repos\testProject\external\SerialCom\SerialPort.cpp(238): warning C4018: '>=': signed/unsigned mismatch
+main.cpp(589): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(590): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(591): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(592): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   Generating code
-  70 of 375 functions (18.7%) were compiled, the rest were copied from previous compilation.
-    4 functions were new in current compilation
-    27 functions had inline decision re-evaluated but remain unchanged
+  65 of 390 functions (16.7%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
   testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Full PDB)

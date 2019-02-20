@@ -18,16 +18,5 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\SerialPort.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\Defaults.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\..\..\Downloads\Racecar-Communication-Interface-master\Racecar-Communication-Interface-master\Racecar Communication Interface\src\SerialPort.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

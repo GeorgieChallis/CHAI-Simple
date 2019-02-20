@@ -28,14 +28,13 @@ SerialPort::~SerialPort()
 }
 
 // Create HANDLE and connect to specified COMport
-void SerialPort::connect()
+bool SerialPort::connect()
 {
+	bool success = false;
 	if (this->connected)
 		this->disconnect();
 
 	this->connected = false;
-
-	std::cout << "Connecting...";
 
 	// Create Handler
 	this->handler = CreateFileA(static_cast<LPCSTR>(COMport),
@@ -52,11 +51,11 @@ void SerialPort::connect()
 	{
 		if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		{
-			std::cout << "Handle could not be attatched; the specified COM port is unavailable.";
+			std::cout << "Handle could not be attatched; the specified COM port is unavailable." << std::endl;
 		}
 		else
 		{	
-			std::cout <<"Connection failed.";
+			std::cout <<"Connection failed." << std::endl;
 			//std::cout << GetLastErrorAsString() << std::endl;
 		}
 	}
@@ -86,12 +85,13 @@ void SerialPort::connect()
 
 				PurgeComm(this->handler, PURGE_RXCLEAR | PURGE_TXCLEAR);
 				Sleep(500);
-
+				
+				success = true;
 				std::cout <<"Connection established.";
 			}
 		}
 	}
-	
+	return success;
 }
 
 void SerialPort::disconnect()
