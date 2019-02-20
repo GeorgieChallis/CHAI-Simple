@@ -154,7 +154,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>../../external/VICON/Lib;../../external/SerialCom;../;../../external/VICON/;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/Logging/include;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVRKernel/Src/Kernel;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Src;../../external/CHAI3D/modules/OCULUS/src;../../external/CHAI3D/modules/OCULUS/external/oculusSDK/LibOVR/Include;../../src;../../external/CHAI3D/external/glew/include;../../external/CHAI3D/extras/GLFW/include;../../external/CHAI3D/external/Eigen;../../external/CHAI3D/src</AdditionalIncludeDirectories>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PreprocessorDefinitions>WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN64;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
