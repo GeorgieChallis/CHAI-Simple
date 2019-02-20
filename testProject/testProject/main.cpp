@@ -97,6 +97,7 @@ static double cube_size = 0.2;
 //	SETUP Serial
 //----------------------------------------
 SerialPort serialPort;
+static bool serialOK = false;
 
 #pragma endregion Global variables - Serial Port
 
@@ -336,8 +337,18 @@ int main(int argc, char* argv[])
 #pragma region
 	std::cout << "Looking for Serial Connection..." << std::endl;
 
-	bool serialOK = serialPort.connect();
-	if(serialOK) {}
+	serialOK = serialPort.connect();
+	if(serialOK) {
+		cout << "Found USB device!" << endl << endl;
+		while (true)
+		{
+			if (GetAsyncKeyState(VK_ESCAPE))
+				break;
+
+			serialPort.readAllBytes();
+		}
+		//serialPort.readAllBytes();
+	}
 	else {
 		SetConsoleTextAttribute(hConsole, 0x0e);
 		std::cout << "No USB peripheral found. Keyboard interaction only." << endl << endl;
@@ -966,6 +977,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 
 void close(void)
 {
+	if (serialOK) { serialPort.disconnect(); }
+	
 	// stop the simulation
 	simulationRunning = false;
 

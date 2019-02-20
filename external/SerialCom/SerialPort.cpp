@@ -87,7 +87,6 @@ bool SerialPort::connect()
 				Sleep(500);
 				
 				success = true;
-				std::cout <<"Connection established.";
 			}
 		}
 	}
@@ -145,10 +144,9 @@ char SerialPort::readByte()
 	// Check queue
 	ClearCommError(this->handler, &this->errors, &this->status);
 
-	if (this->status.cbInQue == 0) {
-		std::cout <<"Empty data buffer queue.";
-		return 0;
-	}
+	//if (this->status.cbInQue == 0) {
+		//return 0;
+	//}
 
 	// Read buffer
 	DWORD bytesread;
@@ -206,7 +204,7 @@ void SerialPort::readAllBytes()
 	while (buffer = readByte())
 	{
 		if (buffer)
-			printf("0x%X (%c)\n", buffer, buffer);
+			printf("%c", buffer);
 	}
 
 }
