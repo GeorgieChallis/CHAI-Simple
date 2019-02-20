@@ -1,97 +1,90 @@
-#include "SerialPort.h"
-#include "Defaults.h"
-
-#include "DataStreamClient.h"
 //-----------------------------------
 //CHAI3D
 #include "chai3d.h"
 //OpenGL Wrapper
 #include <GLFW/glfw3.h>
-
 //OCULUS SDK
 #include "COculus.h"
-
 //For VICON Code
+#include "DataStreamClient.h"
+// FOR C++ Serial Port Class
+#include "SerialPort.h"
+#include "Defaults.h"
+
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
 #include <cassert>
 #include <cstdlib>
-#include <ctime>
+//#include <ctime>
 #include <vector>
 #include <string.h>
 #include <time.h>
+
 #ifdef WIN32
 #include <conio.h>   // For _kbhit()
 #include <cstdio>   // For getchar()
 #include <windows.h> // For Sleep()
 #endif // WIN32
+#ifdef WIN32
+bool Hit()
+{
+	bool hit = false;
+	while (_kbhit())
+	{
+		getchar();
+		hit = true;
+	}
+	return hit;
+}
+#endif
 
-#define _CRT_SECURE_NO_WARNINGS
-
-
-
-
-
-// FOR C++ Serial Port Class
-
-
-// -------------------------
-
-//------------------------------------------------------------------------------
+//-Namespaces------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
+using namespace ViconDataStreamSDK::CPP;
 //------------------------------------------------------------------------------
 
-
-
-
-//------------------
-HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //---------------------------------------------------------------------------
+// ------ LOGGING -----------
+time_t startTime;
+//Console
+HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+ofstream chaifile;
+ofstream viconfile;
+
 //convert to resource path
 #define RESOURCE_PATH(p)	(char*)((resourceRoot+string(p)).c_str())
 
-
 // a world that contains all objects of the virtual environment
 cWorld* world;
-
 // a camera to render the world in the window display
 cCamera* camera;
-
 // a light source to illuminate the objects in the world
 cSpotLight *light;
-
 // a few shape primitives that compose our scene
 cMesh* my_cube;
 
 // a flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
-
 // a flag to indicate if the haptic simulation has terminated
 bool simulationFinished = true;
 
-
 // a handle to window display context
 GLFWwindow* window = NULL;
-
 // current width of window
 int width = 0;
-
 // current height of window
 int height = 0;
-
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
 //----------------------------------------
 //	SETUP MICROBIT - Serial
 //----------------------------------------
-
-
 
 
 //----------------------------------------
@@ -101,15 +94,15 @@ cOVRRenderContext renderContext;
 cOVRDevice oculusVR;
 bool oculusInit = false;
 
-// ------ LOGGING -----------
-ofstream chaifile("hmd-chaipos.csv", ios::app);
-ofstream viconfile("hmd-viconpos.txt", ios::app);
+//---------
+//  VICON
+//---------
+
 
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
-
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
 
@@ -124,6 +117,7 @@ void updateGraphics(void);
 
 //Print headset position to file
 void PrintHMDPos();
+void PrintMarkerPos();
 
 //Move Cube
 void MoveLeft(void);
@@ -135,7 +129,6 @@ void close(void);
 
 //==============================================================================
 //---------------------------------------------------------------
-
 
 static bool trialRunning = false;
 int trialNumber = 0;
@@ -150,10 +143,68 @@ static double cube_size = 0.2;
 
 //-----------------------------------------------------------------
 
+
+
 int main(int argc, char* argv[])
 {
+	//LOGGING--------------------------
+	startTime = clock();
+
+	struct tm * timeinfo;
+	time(&startTime);
+//	timeinfo = localtime(&startTime);
+
+	string datetime = "";// = (string)asctime(timeinfo);
+	//cout << "Session Start: " << datetime << endl;
+	cout << "Type file name for logging (no spaces)" << endl;
+	string filename;
+	cin >> filename;
+
+	string oculusFilename = filename + "_HMD.csv";
+	string viconFilename = filename + "_markers.csv";
+	chaifile.open(oculusFilename, ios::app);
+	viconfile.open(viconFilename, ios::app);
+
+	cout << datetime;
+	chaifile << datetime;
+
 	cout << endl;
 	cout << "----------------------------------------" << endl;
+
+	//VICON-------------------------------------------
+	string HostName = "localhost:801"; //"134.225.86.151"
+		//Make a new client
+		ViconDataStreamSDK::CPP::Client MyClient;
+		for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
+		{
+			// Connect to a server
+			std::cout << "Connecting to " << HostName << " ..." << std::flush;
+			while (!MyClient.IsConnected().Connected)
+			{
+				// Direct connection
+
+				bool ok = false;
+
+				ok = (MyClient.Connect(HostName).Result == Result::Success);
+
+				if (!ok)
+				{
+					std::cout << "Warning - connect failed..." << std::endl;
+				}
+				std::cout << ".";
+			#ifdef WIN32
+				Sleep(1000);
+			#else
+				Sleep(200);
+				//sleep(1);
+			#endif
+			}
+		}
+			
+
+
+
+	//--------------------------------------------------
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
 
@@ -256,10 +307,8 @@ int main(int argc, char* argv[])
 	if (!oculusInit) {
 		// get width and height of window
 		glfwGetWindowSize(window, &width, &height);
-
 		// set position of window
 		glfwSetWindowPos(window, x, y);
-
 		// set resize callback
 		glfwSetWindowSizeCallback(window, windowSizeCallback);
 	}
@@ -401,6 +450,7 @@ int main(int argc, char* argv[])
 
 			oculusVR.onRenderStart();
 			PrintHMDPos();
+			PrintMarkerPos();
 
 			// render frame for each eye
 			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
@@ -530,7 +580,6 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_SPACE)
 	{
 		if(oculusInit) { 	
-			PrintHMDPos();
 			oculusVR.recenterPose(); 
 		}
 	}
@@ -615,13 +664,22 @@ void RotateCube(int x, int y, int z, double degrees)
 }
 
 void PrintHMDPos() {
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ",";
-	chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << endl << endl;
+	try {
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ",";
+		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << endl;
+	}
+	catch (exception e) {
+		std::cout << "Couldn't find log file!" << endl;
+	}
+}
+
+void PrintMarkerPos() {
+
 }
 
 
