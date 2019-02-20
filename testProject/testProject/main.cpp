@@ -1,4 +1,5 @@
 //-----------------------------------
+
 //CHAI3D
 #include "chai3d.h"
 //OpenGL Wrapper
@@ -240,8 +241,6 @@ bool Hit()
 #endif
 
 
-
-
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -270,7 +269,6 @@ void RotateCube(int x, int y, int z, double degrees);
 void close(void);
 
 //==============================================================================
-//---------------------------------------------------------------
 
 static bool trialRunning = false;
 int trialNumber = 0;
@@ -285,10 +283,12 @@ static double cube_size = 0.2;
 
 //-----------------------------------------------------------------
 
-
-
 int main(int argc, char* argv[])
 {
+	// parse first arg to try and locate resources
+	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
+
+#pragma region
 	//LOGGING--------------------------
 	SetConsoleTextAttribute(hConsole, 7);
 	startTime = clock();
@@ -313,7 +313,9 @@ int main(int argc, char* argv[])
 
 	std::cout << endl;
 	std::cout << "----------------------------------------" << endl;
+#pragma endregion Log_Setup
 
+#pragma region
 	//VICON-------------------------------------------
 //	#define output_stream if(!LogFile.empty()) ; else std::cout 
 
@@ -327,15 +329,15 @@ int main(int argc, char* argv[])
 		std::cout << "VICON Connection Test:" << endl;
 		// Connect to a server
 		std::cout << "Connecting to " << HostName << " ..." << endl << std::flush;
-		static bool ok = false;
+		static bool viconConnected = false;
 		for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
 		{
 			while (!MyClient.IsConnected().Connected)
 			{
 				// Direct connection
-				ok = (MyClient.Connect(HostName).Result == Result::Success);
+				viconConnected = (MyClient.Connect(HostName).Result == Result::Success);
 
-				if (!ok)
+				if (!viconConnected)
 				{
 					connectAttempts++;
 					std::cout << "." << endl;
@@ -349,7 +351,7 @@ int main(int argc, char* argv[])
 #endif
 			}
 		}
-		if (!ok) {
+		if (!viconConnected) {
 			SetConsoleTextAttribute(hConsole, 0x0e);
 			std::cout << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
 			SetConsoleTextAttribute(hConsole, 7);
@@ -532,20 +534,14 @@ int main(int argc, char* argv[])
 				double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
 				std::cout << " Disconnect time = " << secs << " secs" << std::endl;
 			}
-			}
+		}
 
-		
-		
+#pragma endregion VICON_Setup
 
-
-	//--------------------------------------------------
-	// parse first arg to try and locate resources
-	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
-
+#pragma region
 	//--------------------------------------------------------------------------
 	// OPEN GL - WINDOW DISPLAY
 	//--------------------------------------------------------------------------
-
 	// initialize GLFW library
 	std::cout << "Checking for OpenGL libraries..." << endl;
 	if (!glfwInit())
@@ -601,6 +597,10 @@ int main(int argc, char* argv[])
 	}
 #endif
 
+#pragma endregion GLFW_Setup
+
+#pragma region
+
 	//initialise oculus
 	std::cout << "Searching for Oculus Rift..." << endl;
 	if (!oculusVR.initVR())
@@ -646,7 +646,9 @@ int main(int argc, char* argv[])
 		// set resize callback
 		glfwSetWindowSizeCallback(window, windowSizeCallback);
 	}
+#pragma endregion OCULUS_Setup
 
+#pragma region
 
 	//--------------------------------------------------------------------------
 	// WORLD - CAMERA - LIGHTING
@@ -687,6 +689,9 @@ int main(int argc, char* argv[])
 
 	// set light cone half angle
 	light->setCutOffAngleDeg(50);
+#pragma endregion CHAIWorld_Setup
+
+#pragma region
 
 	//--------------------------------------------------------------------------
 	// CREATING SHAPES
@@ -758,6 +763,10 @@ int main(int argc, char* argv[])
 	// compute tangent vectors
 	my_cube->computeBTN();
 
+#pragma endregion CHAIShape_Setup
+
+#pragma region
+
 	//--------------------------------------------------------------------------
 	// START SIMULATION
 	//--------------------------------------------------------------------------
@@ -825,7 +834,8 @@ int main(int argc, char* argv[])
 		// process events
 		glfwPollEvents();
 	}
-
+#pragma endregion Simulation
+	
 	// close window
 	glfwDestroyWindow(window);
 
@@ -836,7 +846,7 @@ int main(int argc, char* argv[])
 	return (0);
 }
 
-//------------------------------------------------------------------------------
+#pragma region
 
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 {
@@ -845,8 +855,6 @@ void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 	height = a_height;
 }
 
-//------------------------------------------------------------------------------
-
 void errorCallback(int a_error, const char* a_description)
 {
 	SetConsoleTextAttribute(hConsole, 4);
@@ -854,7 +862,76 @@ void errorCallback(int a_error, const char* a_description)
 	SetConsoleTextAttribute(hConsole, 7);
 }
 
-//-----------------------------------------------------------------------------
+void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+	// filter calls that only include a key press
+	if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
+	{
+		return;
+	}
+
+	// option - exit
+	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+	{
+		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
+	}
+
+	// option - spacebar
+	else if (a_key == GLFW_KEY_SPACE)
+	{
+		if (oculusInit) {
+			oculusVR.recenterPose();
+		}
+	}
+
+	// option - trial 1
+	else if (a_key == GLFW_KEY_1) {
+		//Start trial 1
+		std::cout << "Starting Trial 1: Right to Left" << endl;
+		cube_posZ = 0.5;
+		cube_posY = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Finish previous trial before next one." << endl;
+		}
+		SetConsoleTextAttribute(hConsole, 7);
+	}
+
+	else if (a_key == GLFW_KEY_2) {
+		//Start trial 2
+		std::cout << "Starting Trial 2: Left to Right" << endl;
+		cube_posZ = -0.5;
+		cube_posY = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Error: Finish previous trial before next one." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+	}
+	else if (a_key == GLFW_KEY_3) {
+		//Rotate X
+		RotateCube(1, 0, 0, 10);
+	}
+	else if (a_key == GLFW_KEY_4) {
+		//Rotate Y
+		RotateCube(0, 1, 0, 10);
+	}
+	else if (a_key == GLFW_KEY_5) {
+		//Rotate Z
+		RotateCube(0, 0, 1, 10);
+	}
+}
+
+#pragma endregion Callbacks
+
 //------------------------------------------------------------------------------
 
 void close(void)
@@ -891,78 +968,7 @@ void updateGraphics(void)
 	if (err != GL_NO_ERROR) std::cout << "Error:  %s\n" << gluErrorString(err);
 	SetConsoleTextAttribute(hConsole, 7);
 }
-
-//-----------------------------------------------------------------------------
-
 //------------------------------------------------------------------------------
-
-void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
-{
-	// filter calls that only include a key press
-	if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
-	{
-		return;
-	}
-
-	// option - exit
-	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
-	{
-		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
-	}
-
-	// option - spacebar
-	else if (a_key == GLFW_KEY_SPACE)
-	{
-		if(oculusInit) { 	
-			oculusVR.recenterPose(); 
-		}
-	}
-
-
-	// option - trial 1
-	else if (a_key == GLFW_KEY_1) {
-		//Start trial 1
-		std::cout << "Starting Trial 1: Right to Left" << endl;
-		cube_posZ = 0.5;
-		cube_posY = 0.2;
-		if (!trialRunning) {
-			cubeThread = new cThread();
-			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
-		}
-		else { 
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << "Warning: Finish previous trial before next one." << endl; }
-			SetConsoleTextAttribute(hConsole, 7);
-	}
-
-	else if (a_key == GLFW_KEY_2) {
-		//Start trial 2
-		std::cout << "Starting Trial 2: Left to Right" << endl;
-		cube_posZ = -0.5;
-		cube_posY = 0.2;
-		if (!trialRunning) {
-			cubeThread = new cThread();
-			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
-		}
-		else { 
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << "Error: Finish previous trial before next one." << endl;
-			SetConsoleTextAttribute(hConsole, 7);
-		}
-	}
-	else if (a_key == GLFW_KEY_3) {
-		//Rotate X
-		RotateCube(1, 0, 0, 10);
-	}
-	else if (a_key == GLFW_KEY_4) {
-		//Rotate Y
-		RotateCube(0, 1, 0, 10);
-	}
-	else if (a_key == GLFW_KEY_5) {
-		//Rotate Z
-		RotateCube(0, 0, 1, 10);
-	}
-}
 
 //------MOVE CUBE METHODS----------------------
 
@@ -1015,7 +1021,5 @@ void PrintHMDPos() {
 void PrintMarkerPos() {
 
 }
-
-
 //------------------------------------------------------------------------------
 
