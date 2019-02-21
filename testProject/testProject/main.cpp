@@ -99,6 +99,8 @@ static double cube_size = 0.2;
 SerialPort serialPort;
 static bool serialOK = false;
 
+static double quaternion[4];
+
 #pragma endregion Global variables - Serial Port
 
 #pragma region
@@ -336,18 +338,60 @@ int main(int argc, char* argv[])
 
 #pragma region
 	std::cout << "Looking for Serial Connection..." << std::endl;
-
 	serialOK = serialPort.connect();
+
 	if(serialOK) {
+		vector <string> lastStringBuffer;
+		vector <string> stringBuffer;
+		static string string;
+		Sleep(750);
 		cout << "Found USB device!" << endl << endl;
+		bool dataReceived = false;
 		while (true)
 		{
-			if (GetAsyncKeyState(VK_ESCAPE))
-				break;
+			int buffer;
 
-			serialPort.readAllBytes();
+			while (buffer = serialPort.readByte())
+			{
+				if (!dataReceived){
+					if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
+				}
+
+				else {
+					if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
+						string += (char)buffer;
+					}
+					else if (buffer == 44) {
+						//cout << string;
+						stringBuffer.push_back(string);
+						string = "";
+					}
+					else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
+					{
+						cout << " endline ";
+					}
+
+					else if (buffer = 59) {
+						string::size_type sz;
+
+						stringBuffer.push_back(string);
+						string = "";
+
+						lastStringBuffer = stringBuffer;
+						stringBuffer.resize(0);
+						if (lastStringBuffer.size() == 4) {
+							for (int i = 0; i < lastStringBuffer.size(); i++) {
+								quaternion[i] = stod(lastStringBuffer[i], &sz);
+								cout << quaternion[i] << ", ";
+							}
+							cout << endl;
+						}
+						else cout << "Wrong size array" << endl;
+					}
+					else cout << "?";
+				}
+			}
 		}
-		//serialPort.readAllBytes();
 	}
 	else {
 		SetConsoleTextAttribute(hConsole, 0x0e);
@@ -977,7 +1021,10 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 
 void close(void)
 {
-	if (serialOK) { serialPort.disconnect(); }
+	if (serialOK) { 
+		serialPort.flush();
+		serialPort.disconnect(); 
+	}
 	
 	// stop the simulation
 	simulationRunning = false;

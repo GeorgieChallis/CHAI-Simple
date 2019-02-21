@@ -204,7 +204,7 @@ void SerialPort::readAllBytes()
 	while (buffer = readByte())
 	{
 		if (buffer)
-			printf("%c", buffer);
+			std::cout << buffer << std::endl;// printf("%c", buffer);
 	}
 
 }
