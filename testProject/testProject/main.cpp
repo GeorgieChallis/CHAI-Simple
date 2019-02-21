@@ -85,7 +85,7 @@ cThread *cubeThread;
 static double cube_posX = 0.0;
 static double cube_posY = 0.0;
 static double cube_posZ = 0.0;
-static double cube_size = 0.2;
+static double cube_size = 0.3;
 
 //-----------------------------------------------------------------
 
@@ -706,9 +706,9 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.0, 1.5, 0.0),    // camera position (eye)
-		cVector3d(0.2, 0.0, 0.0),    // lookat position (target)
-		cVector3d(0.0, 1.0, 0.0));   // direction of the (up) vector
+	camera->set(cVector3d(0.0, -1.5, 0.0),    // camera position (eye)
+		cVector3d(0.0, -0.2, 0.0),    // lookat position (target)
+		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 
 // set the near and far clipping planes of the camera
 	camera->setClippingPlanes(0.01, 10.0);
@@ -1007,6 +1007,7 @@ void updateGraphics(void)
 	if (serialOK) {
 		cQuaternion qRotation = quaternion;
 		cMatrix3d qRotMatrix;
+		cMatrix3d localRot = my_cube->getLocalRot();
 		qRotation.toRotMat(qRotMatrix);
 		my_cube->setLocalRot(qRotMatrix);
 	}
@@ -1032,7 +1033,7 @@ void UpdateIMUCube() {
 
 	bool dataReceived = false;
 
-	cout << "IMU thread created - Arduino mode." << endl;
+	cout << "Serial: IMU thread created - Arduino mode." << endl;
 	while (true)
 	{
 		int buffer;
@@ -1066,10 +1067,12 @@ void UpdateIMUCube() {
 					lastStringBuffer = stringBuffer;
 					stringBuffer.resize(0);
 					if (lastStringBuffer.size() == 4) {
-						for (int i = 0; i < lastStringBuffer.size(); i++) {
-							quaternion[i] = stod(lastStringBuffer[i], &sz);
+						try {
+							for (int i = 0; i < lastStringBuffer.size(); i++) {
+								quaternion[i] = stod(lastStringBuffer[i], &sz);
+							}
 						}
-						cout << endl;
+						catch (exception e) {}
 					}
 					else cout << "Wrong size array" << endl;
 				}

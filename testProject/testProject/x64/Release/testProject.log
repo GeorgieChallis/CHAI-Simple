@@ -1,14 +1,14 @@
 ﻿  main.cpp
 C:\Users\gchal\source\repos\testProject\external\SerialCom\SerialPort.cpp(118): warning C4838: conversion from 'uint8_t' to 'char' requires a narrowing conversion
-C:\Users\gchal\source\repos\testProject\external\SerialCom\SerialPort.cpp(236): warning C4018: '>=': signed/unsigned mismatch
+C:\Users\gchal\source\repos\testProject\external\SerialCom\SerialPort.cpp(235): warning C4018: '>=': signed/unsigned mismatch
 main.cpp(600): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(601): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(602): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(603): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   Generating code
-  70 of 508 functions (13.8%) were compiled, the rest were copied from previous compilation.
-    2 functions were new in current compilation
-    4 functions had inline decision re-evaluated but remain unchanged
+  69 of 508 functions (13.6%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    6 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
   testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Full PDB)
