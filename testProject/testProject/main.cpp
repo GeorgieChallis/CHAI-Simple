@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <cassert>
 #include <cstdlib>
-//#include <ctime>
 #include <vector>
 #include <string.h>
 #include <time.h>
@@ -292,6 +291,7 @@ void PrintHMDPos();
 void PrintMarkerPos();
 
 //Move Cube
+void UpdateIMUCube(void);
 void MoveLeft(void);
 void MoveRight(void);
 void RotateCube(int x, int y, int z, double degrees);
@@ -300,7 +300,7 @@ void RotateCube(int x, int y, int z, double degrees);
 void close(void);
 
 //==============================================================================
-#pragma endregion Declared variables
+#pragma endregion Declared functions
 
 int main(int argc, char* argv[])
 {	
@@ -341,57 +341,13 @@ int main(int argc, char* argv[])
 	serialOK = serialPort.connect();
 
 	if(serialOK) {
-		vector <string> lastStringBuffer;
-		vector <string> stringBuffer;
-		static string string;
-		Sleep(750);
+		Sleep(1000);
 		cout << "Found USB device!" << endl << endl;
-		bool dataReceived = false;
-		while (true)
-		{
-			int buffer;
+		cThread *serialThread;
+		serialThread = new cThread();
+		serialThread->start(UpdateIMUCube, CTHREAD_PRIORITY_GRAPHICS);
 
-			while (buffer = serialPort.readByte())
-			{
-				if (!dataReceived){
-					if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
-				}
-
-				else {
-					if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
-						string += (char)buffer;
-					}
-					else if (buffer == 44) {
-						//cout << string;
-						stringBuffer.push_back(string);
-						string = "";
-					}
-					else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
-					{
-						cout << " endline ";
-					}
-
-					else if (buffer = 59) {
-						string::size_type sz;
-
-						stringBuffer.push_back(string);
-						string = "";
-
-						lastStringBuffer = stringBuffer;
-						stringBuffer.resize(0);
-						if (lastStringBuffer.size() == 4) {
-							for (int i = 0; i < lastStringBuffer.size(); i++) {
-								quaternion[i] = stod(lastStringBuffer[i], &sz);
-								cout << quaternion[i] << ", ";
-							}
-							cout << endl;
-						}
-						else cout << "Wrong size array" << endl;
-					}
-					else cout << "?";
-				}
-			}
-		}
+		
 	}
 	else {
 		SetConsoleTextAttribute(hConsole, 0x0e);
@@ -1048,6 +1004,13 @@ void updateGraphics(void)
 	//set cube pos
 	my_cube->setLocalPos(cube_posX, cube_posY, cube_posZ);
 
+	if (serialOK) {
+		cQuaternion qRotation = quaternion;
+		cMatrix3d qRotMatrix;
+		qRotation.toRotMat(qRotMatrix);
+		my_cube->setLocalRot(qRotMatrix);
+	}
+
 	// wait until all GL commands are completed
 	glFinish();
 
@@ -1061,6 +1024,61 @@ void updateGraphics(void)
 //------------------------------------------------------------------------------
 
 //------MOVE CUBE METHODS----------------------
+
+void UpdateIMUCube() {
+	vector <string> lastStringBuffer;
+	vector <string> stringBuffer;
+	static string string;
+
+	bool dataReceived = false;
+
+	cout << "IMU thread created - Arduino mode." << endl;
+	while (true)
+	{
+		int buffer;
+
+		while (buffer = serialPort.readByte())
+		{
+			if (!dataReceived) {
+				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
+			}
+
+			else {
+				if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
+					string += (char)buffer;
+				}
+				else if (buffer == 44) {
+					//cout << string;
+					stringBuffer.push_back(string);
+					string = "";
+				}
+				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
+				{
+					cout << " endline ";
+				}
+
+				else if (buffer = 59) {
+					string::size_type sz;
+
+					stringBuffer.push_back(string);
+					string = "";
+
+					lastStringBuffer = stringBuffer;
+					stringBuffer.resize(0);
+					if (lastStringBuffer.size() == 4) {
+						for (int i = 0; i < lastStringBuffer.size(); i++) {
+							quaternion[i] = stod(lastStringBuffer[i], &sz);
+						}
+						cout << endl;
+					}
+					else cout << "Wrong size array" << endl;
+				}
+				else cout << "?";
+			}
+		}
+	}
+
+}
 
 void MoveLeft() {
 	trialRunning = true;
