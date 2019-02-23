@@ -85,7 +85,7 @@ cThread *cubeThread;
 static double cube_posX = 0.0;
 static double cube_posY = 0.0;
 static double cube_posZ = 0.0;
-static double cube_size = 0.3;
+static double cube_size = 0.2;
 
 //-----------------------------------------------------------------
 
@@ -346,8 +346,6 @@ int main(int argc, char* argv[])
 		cThread *serialThread;
 		serialThread = new cThread();
 		serialThread->start(UpdateIMUCube, CTHREAD_PRIORITY_GRAPHICS);
-
-		
 	}
 	else {
 		SetConsoleTextAttribute(hConsole, 0x0e);
