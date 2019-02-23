@@ -115,6 +115,13 @@ bool oculusInit = false;
 //---------
 //  VICON
 //---------
+cThread *viconThread;
+static bool viconConnected = false;
+Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation;
+Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation;
+
+ViconDataStreamSDK::CPP::Client MyClient;
+
 std::string Adapt(const bool i_Value)
 {
 	return i_Value ? "True" : "False";
@@ -287,8 +294,10 @@ void errorCallback(int error, const char* a_description);
 void updateGraphics(void);
 
 //Print headset position to file
-void PrintHMDPos();
-void PrintMarkerPos();
+void PrintHMDPos(void);
+void PrintMarkerPos(void);
+
+void UpdateViconFrame(void);
 
 //Move Cube
 void UpdateIMUCube(void);
@@ -363,12 +372,11 @@ int main(int argc, char* argv[])
 	std::string AxisMapping = "ZUp";
 
 		//Make a new client
-		ViconDataStreamSDK::CPP::Client MyClient;
 		static int connectAttempts = 0;
 		std::cout << "VICON Connection Test:" << endl;
 		// Connect to a server
 		std::cout << "Connecting to " << HostName << " ..." << endl << std::flush;
-		static bool viconConnected = false;
+
 		for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
 		{
 			while (!MyClient.IsConnected().Connected)
@@ -401,10 +409,6 @@ int main(int argc, char* argv[])
 			MyClient.EnableMarkerData();
 			MyClient.EnableUnlabeledMarkerData();
 
-			std::cout << "Segment Data Enabled: " << Adapt(MyClient.IsSegmentDataEnabled().Enabled) << std::endl;
-			std::cout << "Marker Data Enabled: " << Adapt(MyClient.IsMarkerDataEnabled().Enabled) << std::endl;
-			std::cout << "Unlabeled Marker Data Enabled: " << Adapt(MyClient.IsUnlabeledMarkerDataEnabled().Enabled) << std::endl;
-
 			// Set the streaming mode
 			MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
 
@@ -427,152 +431,23 @@ int main(int argc, char* argv[])
 			}
 
 			Output_GetAxisMapping _Output_GetAxisMapping = MyClient.GetAxisMapping();
-			std::cout << "Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
+			std::cout << "Vicon: Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
 				<< " Y-" << Adapt(_Output_GetAxisMapping.YAxis)
 				<< " Z-" << Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
-
-			// Discover the version number
-			Output_GetVersion _Output_GetVersion = MyClient.GetVersion();
-			std::cout << "Version: " << _Output_GetVersion.Major << "."
-				<< _Output_GetVersion.Minor << "."
-				<< _Output_GetVersion.Point << std::endl;
 
 			if (ClientBufferSize > 0)
 			{
 				MyClient.SetBufferSize(ClientBufferSize);
-				std::cout << "Setting client buffer size to " << ClientBufferSize << std::endl;
+				std::cout << "Vicon: Setting client buffer size to " << ClientBufferSize << std::endl;
 			}
 			clock_t LastTime = clock();
 
-			// Loop until a key is pressed
-#ifdef WIN32
-			while (!Hit())
-#else
-			while (true)
-#endif
-			{
-				// Get a frame
-				std::cout << "Waiting for new frame...";
-				while (MyClient.GetFrame().Result != Result::Success)
-				{
-					// Sleep a little so that we don't lumber the CPU with a busy poll
-			#ifdef WIN32
-					Sleep(200);
-			#else
-					Sleep(200);
-					//sleep(1);
-			#endif
-					std::cout << ".";
-				}
-				std::cout << std::endl;
-
-				// Get the frame number
-				Output_GetFrameNumber _Output_GetFrameNumber = MyClient.GetFrameNumber();
-				std::cout << "Frame Number: " << _Output_GetFrameNumber.FrameNumber << std::endl;
-
-				// Get the timecode
-				Output_GetTimecode _Output_GetTimecode = MyClient.GetTimecode();
-				std::cout << "Timecode: "
-					<< _Output_GetTimecode.Hours << "h "
-					<< _Output_GetTimecode.Minutes << "m "
-					<< _Output_GetTimecode.Seconds << "s "
-					<< _Output_GetTimecode.Frames << "f "
-					<< _Output_GetTimecode.SubFrame << "sf "
-					<< Adapt(_Output_GetTimecode.FieldFlag) << " "
-					<< Adapt(_Output_GetTimecode.Standard) << " "
-					<< _Output_GetTimecode.SubFramesPerFrame << " "
-					<< _Output_GetTimecode.UserBits << std::endl << std::endl;
+			//New thread to update VICON position
+			viconThread = new cThread();
+			viconThread->start(UpdateViconFrame, CTHREAD_PRIORITY_GRAPHICS);
 
 
-				// Count the number of subjects
-				unsigned int SubjectCount = MyClient.GetSubjectCount().SubjectCount;
-				std::cout << "Subjects (" << SubjectCount << "):" << std::endl;
-				for (unsigned int SubjectIndex = 0; SubjectIndex < SubjectCount; ++SubjectIndex)
-				{
-					std::cout << "  Subject #" << SubjectIndex << std::endl;
-
-					// Get the subject name
-					std::string SubjectName = MyClient.GetSubjectName(SubjectIndex).SubjectName;
-					std::cout << "    Name: " << SubjectName << std::endl;
-
-					// Count the number of segments
-					unsigned int SegmentCount = MyClient.GetSegmentCount(SubjectName).SegmentCount;
-					std::cout << "    Segments (" << SegmentCount << "):" << std::endl;
-
-					// Count the number of markers
-					unsigned int MarkerCount = MyClient.GetMarkerCount(SubjectName).MarkerCount;
-					cout << "    Markers (" << MarkerCount << "):" << std::endl;
-					for (unsigned int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
-					{
-						// Get the marker name
-						std::string MarkerName = MyClient.GetMarkerName(SubjectName, MarkerIndex).MarkerName;
-
-						// Get the global marker translation
-						Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation =
-							MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
-
-						std::cout << "      Marker #" << MarkerIndex << ": "
-							<< MarkerName << " ("
-							<< _Output_GetMarkerGlobalTranslation.Translation[0] << ", "
-							<< _Output_GetMarkerGlobalTranslation.Translation[1] << ", "
-							<< _Output_GetMarkerGlobalTranslation.Translation[2] << ") "
-							<< Adapt(_Output_GetMarkerGlobalTranslation.Occluded) << std::endl;
-					}
-				}
-
-				// Get the unlabeled markers
-				unsigned int UnlabeledMarkerCount = MyClient.GetUnlabeledMarkerCount().MarkerCount;
-				std::cout << "    Unlabeled Markers (" << UnlabeledMarkerCount << "):" << std::endl;
-				for (unsigned int UnlabeledMarkerIndex = 0; UnlabeledMarkerIndex < UnlabeledMarkerCount; ++UnlabeledMarkerIndex)
-				{
-					// Get the global marker translation
-					Output_GetUnlabeledMarkerGlobalTranslation _Output_GetUnlabeledMarkerGlobalTranslation =
-						MyClient.GetUnlabeledMarkerGlobalTranslation(UnlabeledMarkerIndex);
-
-					std::cout << "      Marker #" << UnlabeledMarkerIndex << ": ("
-						<< _Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] << ", "
-						<< _Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] << ", "
-						<< _Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
-				}
-
-				// Get the labeled markers
-				unsigned int LabeledMarkerCount = MyClient.GetLabeledMarkerCount().MarkerCount;
-				std::cout << "    Labeled Markers (" << LabeledMarkerCount << "):" << std::endl;
-				for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
-				{
-					// Get the global marker translation
-					Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation =
-						MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
-
-					viconfile << (LabeledMarkerIndex);
-					viconfile << (': ');
-					viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
-					viconfile << (',');
-					viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
-					viconfile << (',');
-					viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
-					viconfile << endl;
-
-
-					std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
-						<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
-						<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
-						<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
-				}
-
-				MyClient.DisableSegmentData();
-				MyClient.DisableMarkerData();
-				MyClient.DisableUnlabeledMarkerData();
-				MyClient.DisableDeviceData();
-
-				// Disconnect and dispose
-				int t = clock();
-				std::cout << " Disconnecting..." << std::endl;
-				MyClient.Disconnect();
-				int dt = clock() - t;
-				double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
-				std::cout << " Disconnect time = " << secs << " secs" << std::endl;
-			}
+			
 		}
 
 #pragma endregion VICON_Setup
@@ -975,9 +850,24 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 
 void close(void)
 {
-	if (serialOK) { 
+	if (serialOK) {
 		serialPort.flush();
-		serialPort.disconnect(); 
+		serialPort.disconnect();
+	}
+
+	if(viconConnected){
+		MyClient.DisableSegmentData();
+		MyClient.DisableMarkerData();
+		MyClient.DisableUnlabeledMarkerData();
+		MyClient.DisableDeviceData();
+
+		// Disconnect and dispose
+		int t = clock();
+		std::cout << " Disconnecting VICON..." << std::endl;
+		MyClient.Disconnect();
+		int dt = clock() - t;
+		double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
+		std::cout << " Disconnect time = " << secs << " secs" << std::endl;
 	}
 	
 	// stop the simulation
@@ -1128,7 +1018,76 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
+	viconfile << (',');
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
+	viconfile << (',');
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
+	viconfile << endl;
+}
 
+void UpdateViconFrame() {
+	// Loop until a key is pressed
+#ifdef WIN32
+	while (!Hit())
+#else
+	while (true)
+#endif
+	{
+		// Get a frame
+		//std::cout << "Vicon: Waiting for new frame...";
+		while (MyClient.GetFrame().Result != Result::Success)
+		{
+			// Sleep a little so that we don't lumber the CPU with a busy poll
+#ifdef WIN32
+			Sleep(200);
+#else
+			Sleep(200);
+			//sleep(1);
+#endif
+		}
+
+		// Get the frame number
+		Output_GetFrameNumber _Output_GetFrameNumber = MyClient.GetFrameNumber();
+		// Count the number of subjects
+		unsigned int SubjectCount = MyClient.GetSubjectCount().SubjectCount;
+
+		for (unsigned int SubjectIndex = 0; SubjectIndex < SubjectCount; ++SubjectIndex)
+		{
+			// Get the subject name
+			std::string SubjectName = MyClient.GetSubjectName(SubjectIndex).SubjectName;
+
+			// Count the number of markers
+			unsigned int MarkerCount = MyClient.GetMarkerCount(SubjectName).MarkerCount;
+			for (unsigned int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
+			{
+				// Get the marker name
+				std::string MarkerName = MyClient.GetMarkerName(SubjectName, MarkerIndex).MarkerName;
+
+				// Get the global marker translation
+				_Output_GetMarkerGlobalTranslation =
+					MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
+			}
+		}
+
+
+		// Get the labeled markers
+		unsigned int LabeledMarkerCount = MyClient.GetLabeledMarkerCount().MarkerCount;
+		std::cout << "    Labeled Markers (" << LabeledMarkerCount << "):" << std::endl;
+		for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
+		{
+			// Get the global marker translation
+			_Output_GetLabeledMarkerGlobalTranslation =
+				MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
+
+
+
+			std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
+		}
+	}
 }
 //------------------------------------------------------------------------------
 
