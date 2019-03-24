@@ -579,9 +579,11 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.0, -1.5, 0.0),    // camera position (eye)
-		cVector3d(0.0, -0.2, 0.0),    // lookat position (target)
-		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+	camera->set(
+		cVector3d(1.0, 0.5, 0.0),    // camera position (eye)
+		cVector3d(-1.0, 0.0, 0.0),    // lookat position (target)
+		cVector3d(0.0, 1.0, 0.0)
+	);   // direction of the (up) vector
 
 // set the near and far clipping planes of the camera
 	camera->setClippingPlanes(0.01, 10.0);
@@ -618,64 +620,66 @@ int main(int argc, char* argv[])
 
 	chai3d::cCreateBox(my_cube, cube_size, cube_size, cube_size);
 
-	// create a texture
-	cTexture2dPtr texture = cTexture2d::create();
+	if (serialOK) {
+		// create a texture
+		cTexture2dPtr texture = cTexture2d::create();
 
-	std::cout << "Loading textures..." << endl;
+		std::cout << "Loading textures..." << endl;
 
-	bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
-	if (!fileload)
-	{
+		bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
+		if (!fileload)
+		{
 #if defined(_MSVC)
-		fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
+			fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
 #endif
-	}
-	if (!fileload)
-	{
-		SetConsoleTextAttribute(hConsole, 0x0e);
-		std::cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		// set material color
-		my_cube->m_material->setRedFireBrick();
-	}
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+			// set material color
+			my_cube->m_material->setRedFireBrick();
+		}
 
-	// apply texture to object
-	my_cube->setTexture(texture);
+		// apply texture to object
+		my_cube->setTexture(texture);
 
-	// enable texture rendering 
-	my_cube->setUseTexture(true);
+		// enable texture rendering 
+		my_cube->setUseTexture(true);
 
-	// Since we don't need to see our polygons from both sides, we enable culling.
-	my_cube->setUseCulling(true);
+		// Since we don't need to see our polygons from both sides, we enable culling.
+		my_cube->setUseCulling(true);
 
-	std::cout << "Loading normal map..." << endl;
+		std::cout << "Loading normal map..." << endl;
 
-	// create a normal texture
-	cNormalMapPtr normalMap = cNormalMap::create();
+		// create a normal texture
+		cNormalMapPtr normalMap = cNormalMap::create();
 
-	// load normal map from file
-	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
-	if (!fileload)
-	{
+		// load normal map from file
+		fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
+		if (!fileload)
+		{
 #if defined(_MSVC)
-		fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
+			fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
 #endif
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+
+		// assign normal map to object
+		my_cube->m_normalMap = normalMap;
+
+		// compute surface normals
+		my_cube->computeAllNormals();
+
+		// compute tangent vectors
+		my_cube->computeBTN();
 	}
-	if (!fileload)
-	{
-		SetConsoleTextAttribute(hConsole, 0x0e);
-		std::cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-	}
-
-	// assign normal map to object
-	my_cube->m_normalMap = normalMap;
-
-	// compute surface normals
-	my_cube->computeAllNormals();
-
-	// compute tangent vectors
-	my_cube->computeBTN();
 
 #pragma endregion CHAIShape_Setup
 
@@ -928,6 +932,7 @@ void UpdateIMUCube() {
 
 		while (buffer = serialPort.readByte())
 		{
+		//	cout << "Buffer enter";
 			if (!dataReceived) {
 				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
 			}
