@@ -28,14 +28,13 @@ SerialPort::~SerialPort()
 }
 
 // Create HANDLE and connect to specified COMport
-void SerialPort::connect()
+bool SerialPort::connect()
 {
+	bool success = false;
 	if (this->connected)
 		this->disconnect();
 
 	this->connected = false;
-
-	std::cout << "Connecting...";
 
 	// Create Handler
 	this->handler = CreateFileA(static_cast<LPCSTR>(COMport),
@@ -52,11 +51,11 @@ void SerialPort::connect()
 	{
 		if (GetLastError() == ERROR_FILE_NOT_FOUND)
 		{
-			std::cout << "Handle could not be attatched; the specified COM port is unavailable.";
+			std::cout << "Handle could not be attatched; the specified COM port is unavailable." << std::endl;
 		}
 		else
 		{	
-			std::cout <<"Connection failed.";
+			std::cout <<"Connection failed." << std::endl;
 			//std::cout << GetLastErrorAsString() << std::endl;
 		}
 	}
@@ -86,19 +85,19 @@ void SerialPort::connect()
 
 				PurgeComm(this->handler, PURGE_RXCLEAR | PURGE_TXCLEAR);
 				Sleep(500);
-
-				std::cout <<"Connection established.";
+				
+				success = true;
 			}
 		}
 	}
-	
+	return success;
 }
 
 void SerialPort::disconnect()
 {
 	if (this->connected)
 	{
-		std::cout <<"Closing connection...";
+		std::cout <<"Serial: Closing connection..." << std::endl;
 
 		this->connected = false;
 		this->listening = false;
@@ -120,7 +119,7 @@ void SerialPort::writeByte(uint8_t byte)
 
 	if (!this->connected)
 	{
-		std::cout <<"No active connection.";
+		//std::cout <<"Serial: No active connection.";
 		return;
 	}
 
@@ -138,17 +137,16 @@ char SerialPort::readByte()
 	// Check connection
 	if (!this->connected)
 	{
-		std::cout <<"No active connection.";
+		//std::cout <<"Serial: No active connection.";
 		return 0;
 	}
 
 	// Check queue
 	ClearCommError(this->handler, &this->errors, &this->status);
 
-	if (this->status.cbInQue == 0) {
-		std::cout <<"Empty data buffer queue.";
-		return 0;
-	}
+	//if (this->status.cbInQue == 0) {
+		//return 0;
+	//}
 
 	// Read buffer
 	DWORD bytesread;
@@ -171,7 +169,6 @@ void SerialPort::readBuffer(uint8_t& buffer, int length)
 	// Check connection
 	if (!isConnected())
 	{
-		std::cout <<"No active connection.";
 		return;
 	}
 
@@ -179,7 +176,7 @@ void SerialPort::readBuffer(uint8_t& buffer, int length)
 	ClearCommError(this->handler, &this->errors, &this->status);
 
 	if (this->status.cbInQue == 0) {
-		std::cout <<"Empty data buffer queue.";
+		std::cout <<"Serial: Empty data buffer queue.";
 		return;
 	}
 
@@ -188,7 +185,7 @@ void SerialPort::readBuffer(uint8_t& buffer, int length)
 
 	if (!ReadFile(this->handler, &buffer, length, &bytesread, NULL))
 	{
-		std::cout <<"Error occured reading data.";
+		std::cout <<"Serial: Error occured reading data.";
 		return;
 	}
 }
@@ -196,7 +193,7 @@ void SerialPort::readBuffer(uint8_t& buffer, int length)
 void SerialPort::flush()
 {
 	PurgeComm(handler, PURGE_TXABORT | PURGE_RXABORT | PURGE_TXCLEAR | PURGE_RXCLEAR);
-	std::cout <<"Buffer was flushed";
+	std::cout << "Serial: Buffer was flushed" << std::endl;
 }
 
 void SerialPort::readAllBytes()
@@ -206,7 +203,7 @@ void SerialPort::readAllBytes()
 	while (buffer = readByte())
 	{
 		if (buffer)
-			printf("0x%X (%c)\n", buffer, buffer);
+			std::cout << buffer << std::endl;// printf("%c", buffer);
 	}
 
 }
@@ -214,7 +211,7 @@ void SerialPort::readAllBytes()
 void SerialPort::readContinuousData()
 {
 	
-	std::cout <<"Starting continuous buffer reading; press ESC to stop.\n";
+	std::cout <<"Serial: Starting continuous buffer reading; press ESC to stop.\n";
 	//Sleep(2000);
 
 	while (true)
@@ -245,7 +242,7 @@ bool SerialPort::poll(int length)
 void SerialPort::listen(int length, int refresh)
 {
 	
-	std::cout <<"Initializing listener, press ESC to stop.";
+	std::cout <<"Serial: Initializing listener, press ESC to stop.";
 	
 	// Pause listener if running
 	if (this->listening)

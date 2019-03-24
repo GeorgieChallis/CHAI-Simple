@@ -40,7 +40,7 @@ private:
 // Methods
 public:
 
-	void connect();
+	bool connect();
 	void disconnect();
 	void flush();
 

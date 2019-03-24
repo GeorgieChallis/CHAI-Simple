@@ -1,4 +1,6 @@
 //-----------------------------------
+#pragma region
+
 //CHAI3D
 #include "chai3d.h"
 //OpenGL Wrapper
@@ -9,6 +11,7 @@
 #include "DataStreamClient.h"
 // FOR C++ Serial Port Class
 #include "SerialPort.h"
+#include "SerialPort.cpp"
 #include "Defaults.h"
 
 #include <fstream>
@@ -16,7 +19,6 @@
 #include <stdio.h>
 #include <cassert>
 #include <cstdlib>
-//#include <ctime>
 #include <vector>
 #include <string.h>
 #include <time.h>
@@ -26,27 +28,19 @@
 #include <cstdio>   // For getchar()
 #include <windows.h> // For Sleep()
 #endif // WIN32
-#ifdef WIN32
-bool Hit()
-{
-	bool hit = false;
-	while (_kbhit())
-	{
-		getchar();
-		hit = true;
-	}
-	return hit;
-}
-#endif
 
-//-Namespaces------------------------------------------------------------------------------
+#pragma endregion Includes
+
+#pragma region
+//-Namespaces-------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
 using namespace ViconDataStreamSDK::CPP;
 //------------------------------------------------------------------------------
+#pragma  endregion Namespaces
 
-
-//------------------------------------------------------------------------------
+#pragma region
+//---------------------------------------------------------------------------
 // DECLARED VARIABLES
 //---------------------------------------------------------------------------
 // ------ LOGGING -----------
@@ -82,24 +76,208 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
-//----------------------------------------
-//	SETUP MICROBIT - Serial
-//----------------------------------------
+static bool trialRunning = false;
+int trialNumber = 0;
 
+cThread *cubeThread;
 
+//Values for changing the cube's position/size
+static double cube_posX = 0.0;
+static double cube_posY = 0.0;
+static double cube_posZ = 0.0;
+static double cube_size = 0.2;
+
+//-----------------------------------------------------------------
+
+#pragma endregion Global variables - CHAI
+
+#pragma region
+//----------------------------------------
+//	SETUP Serial
+//----------------------------------------
+SerialPort serialPort;
+static bool serialOK = false;
+
+static double quaternion[4];
+
+#pragma endregion Global variables - Serial Port
+
+#pragma region
 //----------------------------------------
 // SETUP RIFT
 //----------------------------------------
 cOVRRenderContext renderContext;
 cOVRDevice oculusVR;
 bool oculusInit = false;
+#pragma endregion Global variables - Oculus
 
+#pragma region
 //---------
 //  VICON
 //---------
+cThread *viconThread;
+static bool viconConnected = false;
+Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation;
+Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation;
 
+ViconDataStreamSDK::CPP::Client MyClient;
 
+std::string Adapt(const bool i_Value)
+{
+	return i_Value ? "True" : "False";
+}
 
+std::string Adapt(const TimecodeStandard::Enum i_Standard)
+{
+	switch (i_Standard)
+	{
+	default:
+	case TimecodeStandard::None:
+		return "0";
+	case TimecodeStandard::PAL:
+		return "1";
+	case TimecodeStandard::NTSC:
+		return "2";
+	case TimecodeStandard::NTSCDrop:
+		return "3";
+	case TimecodeStandard::Film:
+		return "4";
+	case TimecodeStandard::NTSCFilm:
+		return "5";
+	case TimecodeStandard::ATSC:
+		return "6";
+	}
+}
+
+std::string Adapt(const Direction::Enum i_Direction)
+{
+	switch (i_Direction)
+	{
+	case Direction::Forward:
+		return "Forward";
+	case Direction::Backward:
+		return "Backward";
+	case Direction::Left:
+		return "Left";
+	case Direction::Right:
+		return "Right";
+	case Direction::Up:
+		return "Up";
+	case Direction::Down:
+		return "Down";
+	default:
+		return "Unknown";
+	}
+}
+
+std::string Adapt(const DeviceType::Enum i_DeviceType)
+{
+	switch (i_DeviceType)
+	{
+	case DeviceType::ForcePlate:
+		return "ForcePlate";
+	case DeviceType::Unknown:
+	default:
+		return "Unknown";
+	}
+}
+
+std::string Adapt(const Unit::Enum i_Unit)
+{
+	switch (i_Unit)
+	{
+	case Unit::Meter:
+		return "Meter";
+	case Unit::Volt:
+		return "Volt";
+	case Unit::NewtonMeter:
+		return "NewtonMeter";
+	case Unit::Newton:
+		return "Newton";
+	case Unit::Kilogram:
+		return "Kilogram";
+	case Unit::Second:
+		return "Second";
+	case Unit::Ampere:
+		return "Ampere";
+	case Unit::Kelvin:
+		return "Kelvin";
+	case Unit::Mole:
+		return "Mole";
+	case Unit::Candela:
+		return "Candela";
+	case Unit::Radian:
+		return "Radian";
+	case Unit::Steradian:
+		return "Steradian";
+	case Unit::MeterSquared:
+		return "MeterSquared";
+	case Unit::MeterCubed:
+		return "MeterCubed";
+	case Unit::MeterPerSecond:
+		return "MeterPerSecond";
+	case Unit::MeterPerSecondSquared:
+		return "MeterPerSecondSquared";
+	case Unit::RadianPerSecond:
+		return "RadianPerSecond";
+	case Unit::RadianPerSecondSquared:
+		return "RadianPerSecondSquared";
+	case Unit::Hertz:
+		return "Hertz";
+	case Unit::Joule:
+		return "Joule";
+	case Unit::Watt:
+		return "Watt";
+	case Unit::Pascal:
+		return "Pascal";
+	case Unit::Lumen:
+		return "Lumen";
+	case Unit::Lux:
+		return "Lux";
+	case Unit::Coulomb:
+		return "Coulomb";
+	case Unit::Ohm:
+		return "Ohm";
+	case Unit::Farad:
+		return "Farad";
+	case Unit::Weber:
+		return "Weber";
+	case Unit::Tesla:
+		return "Tesla";
+	case Unit::Henry:
+		return "Henry";
+	case Unit::Siemens:
+		return "Siemens";
+	case Unit::Becquerel:
+		return "Becquerel";
+	case Unit::Gray:
+		return "Gray";
+	case Unit::Sievert:
+		return "Sievert";
+	case Unit::Katal:
+		return "Katal";
+
+	case Unit::Unknown:
+	default:
+		return "Unknown";
+	}
+}
+
+#ifdef WIN32
+bool Hit()
+{
+	bool hit = false;
+	while (_kbhit())
+	{
+		getchar();
+		hit = true;
+	}
+	return hit;
+}
+#endif
+#pragma endregion Global variables - VICON
+
+#pragma region
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -116,10 +294,13 @@ void errorCallback(int error, const char* a_description);
 void updateGraphics(void);
 
 //Print headset position to file
-void PrintHMDPos();
-void PrintMarkerPos();
+void PrintHMDPos(void);
+void PrintMarkerPos(void);
+
+void UpdateViconFrame(void);
 
 //Move Cube
+void UpdateIMUCube(void);
 void MoveLeft(void);
 void MoveRight(void);
 void RotateCube(int x, int y, int z, double degrees);
@@ -128,35 +309,27 @@ void RotateCube(int x, int y, int z, double degrees);
 void close(void);
 
 //==============================================================================
-//---------------------------------------------------------------
-
-static bool trialRunning = false;
-int trialNumber = 0;
-
-cThread *cubeThread;
-
-//Values for changing the cube's position/size
-static double cube_posX = 0.0;
-static double cube_posY = 0.0;
-static double cube_posZ = 0.0;
-static double cube_size = 0.2;
-
-//-----------------------------------------------------------------
-
-
+#pragma endregion Declared functions
 
 int main(int argc, char* argv[])
-{
+{	
+	// parse first arg to try and locate resources
+	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
+
+#pragma region
 	//LOGGING--------------------------
+	SetConsoleTextAttribute(hConsole, 7);
 	startTime = clock();
 
 	struct tm * timeinfo;
 	time(&startTime);
-//	timeinfo = localtime(&startTime);
+	timeinfo = localtime(&startTime);
 
-	string datetime = "";// = (string)asctime(timeinfo);
-	//cout << "Session Start: " << datetime << endl;
-	cout << "Type file name for logging (no spaces)" << endl;
+	string datetime = (string)asctime(timeinfo);
+	std::cout << "Session Start: " << datetime << endl;
+	std::cout << "Make sure all I/O devices are correctly connected now." << endl;
+
+	std::cout << "Type file name for logging (no spaces)" << endl;
 	string filename;
 	cin >> filename;
 
@@ -165,58 +338,129 @@ int main(int argc, char* argv[])
 	chaifile.open(oculusFilename, ios::app);
 	viconfile.open(viconFilename, ios::app);
 
-	cout << datetime;
+	std::cout << datetime;
 	chaifile << datetime;
 
-	cout << endl;
-	cout << "----------------------------------------" << endl;
+	std::cout << endl;
+	std::cout << "----------------------------------------" << endl;
+#pragma endregion Log_Setup
 
-	//VICON-------------------------------------------
+#pragma region
+	std::cout << "Looking for Serial Connection..." << std::endl;
+	serialOK = serialPort.connect();
+
+	if(serialOK) {
+		Sleep(1000);
+		cout << "Found USB device!" << endl << endl;
+		cThread *serialThread;
+		serialThread = new cThread();
+		serialThread->start(UpdateIMUCube, CTHREAD_PRIORITY_GRAPHICS);
+	}
+	else {
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		std::cout << "No USB peripheral found. Keyboard interaction only." << endl << endl;
+		SetConsoleTextAttribute(hConsole, 7);
+	}
+#pragma endregion Serial_Setup
+
+#pragma region
+//VICON-------------------------------------------
+//#define output_stream if(!LogFile.empty()) ; else std::cout 
+
 	string HostName = "localhost:801"; //"134.225.86.151"
+	unsigned int ClientBufferSize = 0;
+	std::string AxisMapping = "ZUp";
+
 		//Make a new client
-		ViconDataStreamSDK::CPP::Client MyClient;
+		static int connectAttempts = 0;
+		std::cout << "VICON Connection Test:" << endl;
+		// Connect to a server
+		std::cout << "Connecting to " << HostName << " ..." << endl << std::flush;
+
 		for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
 		{
-			// Connect to a server
-			std::cout << "Connecting to " << HostName << " ..." << std::flush;
 			while (!MyClient.IsConnected().Connected)
 			{
 				// Direct connection
+				viconConnected = (MyClient.Connect(HostName).Result == Result::Success);
 
-				bool ok = false;
-
-				ok = (MyClient.Connect(HostName).Result == Result::Success);
-
-				if (!ok)
+				if (!viconConnected)
 				{
-					std::cout << "Warning - connect failed..." << std::endl;
+					connectAttempts++;
+					std::cout << ".";
+					if (connectAttempts > 2) { break; }
 				}
-				std::cout << ".";
-			#ifdef WIN32
+#ifdef WIN32
 				Sleep(1000);
-			#else
+#else
 				Sleep(200);
 				//sleep(1);
-			#endif
+#endif
 			}
 		}
+		if (!viconConnected) {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << endl << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+		else {
+			// Enable some different data types
+			MyClient.EnableSegmentData();
+			MyClient.EnableMarkerData();
+			MyClient.EnableUnlabeledMarkerData();
+
+			// Set the streaming mode
+			MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
+
+			// Set the global up axis
+			MyClient.SetAxisMapping(Direction::Forward,
+				Direction::Left,
+				Direction::Up); // Z-up
+
+			if (AxisMapping == "YUp")
+			{
+				MyClient.SetAxisMapping(Direction::Forward,
+					Direction::Up,
+					Direction::Right); // Y-up
+			}
+			else if (AxisMapping == "XUp")
+			{
+				MyClient.SetAxisMapping(Direction::Up,
+					Direction::Forward,
+					Direction::Left); // Y-up
+			}
+
+			Output_GetAxisMapping _Output_GetAxisMapping = MyClient.GetAxisMapping();
+			std::cout << "Vicon: Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
+				<< " Y-" << Adapt(_Output_GetAxisMapping.YAxis)
+				<< " Z-" << Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
+
+			if (ClientBufferSize > 0)
+			{
+				MyClient.SetBufferSize(ClientBufferSize);
+				std::cout << "Vicon: Setting client buffer size to " << ClientBufferSize << std::endl;
+			}
+			clock_t LastTime = clock();
+
+			//New thread to update VICON position
+			viconThread = new cThread();
+			viconThread->start(UpdateViconFrame, CTHREAD_PRIORITY_GRAPHICS);
+
+
 			
+		}
 
+#pragma endregion VICON_Setup
 
-
-	//--------------------------------------------------
-	// parse first arg to try and locate resources
-	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
-
+#pragma region
 	//--------------------------------------------------------------------------
 	// OPEN GL - WINDOW DISPLAY
 	//--------------------------------------------------------------------------
-
 	// initialize GLFW library
-	cout << "Checking for OpenGL libraries..." << endl;
+	std::cout << "Checking for OpenGL libraries..." << endl;
 	if (!glfwInit())
 	{
-		cout << "GLFW initialisation failed - Check included libraries" << endl;
+		std::cout << "GLFW initialisation failed - Check included libraries" << endl;
 		cSleepMs(1000);
 		return 1;
 	}
@@ -236,12 +480,12 @@ int main(int argc, char* argv[])
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
 	// create display context
-	cout << "Creating context window..." << endl;
+	std::cout << "Creating context window..." << endl;
 	window = glfwCreateWindow(w, h, "CHAI3D Test", NULL, NULL);
 	if (!window)
 	{
-		cout << "Failed to create window." << endl;
-		cout << "Please close existing windows and retry" << endl;
+		std::cout << "Failed to create window." << endl;
+		std::cout << "Please close existing windows and retry" << endl;
 		cSleepMs(1000);
 		glfwTerminate();
 		return 1;
@@ -261,23 +505,27 @@ int main(int argc, char* argv[])
 	// initialize GLEW library
 	if (glewInit() != GLEW_OK)
 	{
-		cout << "Failed to initialize GLEW library - did you mean to include this?" << endl;
+		std::cout << "Failed to initialize GLEW library" << endl;
 		glfwTerminate();
 		return 1;
 	}
 #endif
 
+#pragma endregion GLFW_Setup
+
+#pragma region
+
 	//initialise oculus
-	cout << "Searching for Oculus Rift..." << endl;
+	std::cout << "Searching for Oculus Rift..." << endl;
 	if (!oculusVR.initVR())
 	{
 		SetConsoleTextAttribute(hConsole, 0x0e);
-		cout << "Failed to initialize Oculus." << endl;
-		cout << "Check HDMI and USB are connected" << endl;
+		std::cout << "Failed to initialize Oculus." << endl;
+		std::cout << "Check HDMI and USB are connected" << endl <<endl;
 		oculusInit = false;
 		cSleepMs(1000);
 		SetConsoleTextAttribute(hConsole, 7);
-		cout << "Opening in static screen mode." << endl << endl;
+		std::cout << "Opening in static screen mode." << endl << endl;
 	}
 	else {
 		// get oculus display resolution
@@ -290,7 +538,7 @@ int main(int argc, char* argv[])
 		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
 		{
 			SetConsoleTextAttribute(hConsole, 4);
-			cout << "Failed to initialize Oculus buffers. Check the headset view for troubleshooting tips." << endl;
+			std::cout << "Failed to initialize Oculus buffers. Check the headset view for troubleshooting tips." << endl;
 			oculusInit = false;
 			cSleepMs(1000);
 			oculusVR.destroyVR();
@@ -312,7 +560,9 @@ int main(int argc, char* argv[])
 		// set resize callback
 		glfwSetWindowSizeCallback(window, windowSizeCallback);
 	}
+#pragma endregion OCULUS_Setup
 
+#pragma region
 
 	//--------------------------------------------------------------------------
 	// WORLD - CAMERA - LIGHTING
@@ -329,9 +579,11 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.0, 1.5, 0.0),    // camera position (eye)
-		cVector3d(0.2, 0.0, 0.0),    // lookat position (target)
-		cVector3d(0.0, 1.0, 0.0));   // direction of the (up) vector
+	camera->set(
+		cVector3d(1.0, 0.5, 0.0),    // camera position (eye)
+		cVector3d(-1.0, 0.0, 0.0),    // lookat position (target)
+		cVector3d(0.0, 1.0, 0.0)
+	);   // direction of the (up) vector
 
 // set the near and far clipping planes of the camera
 	camera->setClippingPlanes(0.01, 10.0);
@@ -353,6 +605,9 @@ int main(int argc, char* argv[])
 
 	// set light cone half angle
 	light->setCutOffAngleDeg(50);
+#pragma endregion CHAIWorld_Setup
+
+#pragma region
 
 	//--------------------------------------------------------------------------
 	// CREATING SHAPES
@@ -363,66 +618,72 @@ int main(int argc, char* argv[])
 	// set position
 	my_cube->setLocalPos(0, 0, 0);
 
-	cCreateBox(my_cube, cube_size, cube_size, cube_size);
+	chai3d::cCreateBox(my_cube, cube_size, cube_size, cube_size);
 
-	// create a texture
-	cTexture2dPtr texture = cTexture2d::create();
+	if (serialOK) {
+		// create a texture
+		cTexture2dPtr texture = cTexture2d::create();
 
-	cout << "Loading textures..." << endl;
+		std::cout << "Loading textures..." << endl;
 
-	bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
-	if (!fileload)
-	{
+		bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
+		if (!fileload)
+		{
 #if defined(_MSVC)
-		fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
+			fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
 #endif
-	}
-	if (!fileload)
-	{
-		SetConsoleTextAttribute(hConsole, 0x0e);
-		cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		// set material color
-		my_cube->m_material->setRedFireBrick();
-	}
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+			// set material color
+			my_cube->m_material->setRedFireBrick();
+		}
 
-	// apply texture to object
-	my_cube->setTexture(texture);
+		// apply texture to object
+		my_cube->setTexture(texture);
 
-	// enable texture rendering 
-	my_cube->setUseTexture(true);
+		// enable texture rendering 
+		my_cube->setUseTexture(true);
 
-	// Since we don't need to see our polygons from both sides, we enable culling.
-	my_cube->setUseCulling(true);
+		// Since we don't need to see our polygons from both sides, we enable culling.
+		my_cube->setUseCulling(true);
 
-	cout << "Loading normal map..." << endl;
+		std::cout << "Loading normal map..." << endl;
 
-	// create a normal texture
-	cNormalMapPtr normalMap = cNormalMap::create();
+		// create a normal texture
+		cNormalMapPtr normalMap = cNormalMap::create();
 
-	// load normal map from file
-	fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
-	if (!fileload)
-	{
+		// load normal map from file
+		fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
+		if (!fileload)
+		{
 #if defined(_MSVC)
-		fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
+			fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
 #endif
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+
+		// assign normal map to object
+		my_cube->m_normalMap = normalMap;
+
+		// compute surface normals
+		my_cube->computeAllNormals();
+
+		// compute tangent vectors
+		my_cube->computeBTN();
 	}
-	if (!fileload)
-	{
-		SetConsoleTextAttribute(hConsole, 0x0e);
-		cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-	}
 
-	// assign normal map to object
-	my_cube->m_normalMap = normalMap;
+#pragma endregion CHAIShape_Setup
 
-	// compute surface normals
-	my_cube->computeAllNormals();
-
-	// compute tangent vectors
-	my_cube->computeBTN();
+#pragma region
 
 	//--------------------------------------------------------------------------
 	// START SIMULATION
@@ -432,13 +693,13 @@ int main(int argc, char* argv[])
 
 	// call window size callback at initialization
 	//windowSizeCallback(window, width, height);
-	cout << "Solution loaded." << endl << endl;
+	std::cout << "Solution loaded." << endl << endl;
 
-	cout << "Press [1] for trial 1, [2] for trial 2." << endl;
+	std::cout << "Press [1] for trial 1, [2] for trial 2." << endl;
 
 	if (oculusInit) {		
 		oculusVR.recenterPose();
-		cout << "Centred HMD view." << endl;
+		std::cout << "Centred HMD view." << endl;
 	}
 
 	// main graphic loop
@@ -491,7 +752,8 @@ int main(int argc, char* argv[])
 		// process events
 		glfwPollEvents();
 	}
-
+#pragma endregion Simulation
+	
 	// close window
 	glfwDestroyWindow(window);
 
@@ -502,7 +764,7 @@ int main(int argc, char* argv[])
 	return (0);
 }
 
-//------------------------------------------------------------------------------
+#pragma region
 
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 {
@@ -511,20 +773,107 @@ void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 	height = a_height;
 }
 
-//------------------------------------------------------------------------------
-
 void errorCallback(int a_error, const char* a_description)
 {
 	SetConsoleTextAttribute(hConsole, 4);
-	cout << "Error: " << a_description << endl;
+	std::cout << "Error: " << a_description << endl;
 	SetConsoleTextAttribute(hConsole, 7);
 }
 
-//-----------------------------------------------------------------------------
+void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
+{
+	// filter calls that only include a key press
+	if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
+	{
+		return;
+	}
+
+	// option - exit
+	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+	{
+		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
+	}
+
+	// option - spacebar
+	else if (a_key == GLFW_KEY_SPACE)
+	{
+		if (oculusInit) {
+			oculusVR.recenterPose();
+		}
+	}
+
+	// option - trial 1
+	else if (a_key == GLFW_KEY_1) {
+		//Start trial 1
+		std::cout << "Starting Trial 1: Right to Left" << endl;
+		cube_posZ = 0.5;
+		cube_posY = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Finish previous trial before next one." << endl;
+		}
+		SetConsoleTextAttribute(hConsole, 7);
+	}
+
+	else if (a_key == GLFW_KEY_2) {
+		//Start trial 2
+		std::cout << "Starting Trial 2: Left to Right" << endl;
+		cube_posZ = -0.5;
+		cube_posY = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Error: Finish previous trial before next one." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+	}
+	else if (a_key == GLFW_KEY_3) {
+		//Rotate X
+		RotateCube(1, 0, 0, 10);
+	}
+	else if (a_key == GLFW_KEY_4) {
+		//Rotate Y
+		RotateCube(0, 1, 0, 10);
+	}
+	else if (a_key == GLFW_KEY_5) {
+		//Rotate Z
+		RotateCube(0, 0, 1, 10);
+	}
+}
+
+#pragma endregion Callbacks
+
 //------------------------------------------------------------------------------
 
 void close(void)
 {
+	if (serialOK) {
+		serialPort.flush();
+		serialPort.disconnect();
+	}
+
+	if(viconConnected){
+		MyClient.DisableSegmentData();
+		MyClient.DisableMarkerData();
+		MyClient.DisableUnlabeledMarkerData();
+		MyClient.DisableDeviceData();
+
+		// Disconnect and dispose
+		int t = clock();
+		std::cout << " Disconnecting VICON..." << std::endl;
+		MyClient.Disconnect();
+		int dt = clock() - t;
+		double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
+		std::cout << " Disconnect time = " << secs << " secs" << std::endl;
+	}
+	
 	// stop the simulation
 	simulationRunning = false;
 
@@ -547,6 +896,14 @@ void updateGraphics(void)
 	//set cube pos
 	my_cube->setLocalPos(cube_posX, cube_posY, cube_posZ);
 
+	if (serialOK) {
+		cQuaternion qRotation = quaternion;
+		cMatrix3d qRotMatrix;
+		cMatrix3d localRot = my_cube->getLocalRot();
+		qRotation.toRotMat(qRotMatrix);
+		my_cube->setLocalRot(qRotMatrix);
+	}
+
 	// wait until all GL commands are completed
 	glFinish();
 
@@ -554,83 +911,70 @@ void updateGraphics(void)
 	GLenum err;
 	err = glGetError();
 	SetConsoleTextAttribute(hConsole, 4);
-	if (err != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(err);
+	if (err != GL_NO_ERROR) std::cout << "Error:  %s\n" << gluErrorString(err);
 	SetConsoleTextAttribute(hConsole, 7);
 }
-
-//-----------------------------------------------------------------------------
-
 //------------------------------------------------------------------------------
 
-void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
-{
-	// filter calls that only include a key press
-	if ((a_action != GLFW_PRESS) && (a_action != GLFW_REPEAT))
-	{
-		return;
-	}
-
-	// option - exit
-	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
-	{
-		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
-	}
-
-	// option - spacebar
-	else if (a_key == GLFW_KEY_SPACE)
-	{
-		if(oculusInit) { 	
-			oculusVR.recenterPose(); 
-		}
-	}
-
-
-	// option - trial 1
-	else if (a_key == GLFW_KEY_1) {
-		//Start trial 1
-		cout << "Starting Trial 1: Right to Left" << endl;
-		cube_posZ = 0.5;
-		cube_posY = 0.2;
-		if (!trialRunning) {
-			cubeThread = new cThread();
-			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
-		}
-		else { 
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			cout << "Warning: Finish previous trial before next one." << endl; }
-			SetConsoleTextAttribute(hConsole, 7);
-	}
-
-	else if (a_key == GLFW_KEY_2) {
-		//Start trial 2
-		cout << "Starting Trial 2: Left to Right" << endl;
-		cube_posZ = -0.5;
-		cube_posY = 0.2;
-		if (!trialRunning) {
-			cubeThread = new cThread();
-			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
-		}
-		else { 
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			cout << "Error: Finish previous trial before next one." << endl;
-			SetConsoleTextAttribute(hConsole, 7);
-		}
-	}
-	else if (a_key == GLFW_KEY_3) {
-		//Rotate X
-		RotateCube(1, 0, 0, 10);
-	}
-	else if (a_key == GLFW_KEY_4) {
-		//Rotate Y
-		RotateCube(0, 1, 0, 10);
-	}
-	else if (a_key == GLFW_KEY_5) {
-		//Rotate Z
-		RotateCube(0, 0, 1, 10);
-	}
-}
-
 //------MOVE CUBE METHODS----------------------
+
+void UpdateIMUCube() {
+	vector <string> lastStringBuffer;
+	vector <string> stringBuffer;
+	static string string;
+
+	bool dataReceived = false;
+
+	cout << "Serial: IMU thread created - Arduino mode." << endl;
+	while (true)
+	{
+		int buffer;
+
+		while (buffer = serialPort.readByte())
+		{
+		//	cout << "Buffer enter";
+			if (!dataReceived) {
+				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
+			}
+
+			else {
+				if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
+					string += (char)buffer;
+				}
+				else if (buffer == 44) {
+					//cout << string;
+					stringBuffer.push_back(string);
+					string = "";
+				}
+				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
+				{
+					cout << " endline ";
+				}
+
+				else if (buffer = 59) {
+					string::size_type sz;
+
+					stringBuffer.push_back(string);
+					string = "";
+
+					lastStringBuffer = stringBuffer;
+					stringBuffer.resize(0);
+					if (lastStringBuffer.size() == 4) {
+						try {
+							for (int i = 0; i < lastStringBuffer.size(); i++) {
+								quaternion[i] = stod(lastStringBuffer[i], &sz);
+							}
+						}
+						catch (exception e) {}
+					}
+					else cout << "Wrong size array" << endl;
+				}
+				else cout << "?";
+			}
+		}
+	}
+
+}
 
 void MoveLeft() {
 	trialRunning = true;
@@ -679,9 +1023,76 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
+	viconfile << (',');
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
+	viconfile << (',');
+	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
+	viconfile << endl;
 }
 
+void UpdateViconFrame() {
+	// Loop until a key is pressed
+#ifdef WIN32
+	while (!Hit())
+#else
+	while (true)
+#endif
+	{
+		// Get a frame
+		//std::cout << "Vicon: Waiting for new frame...";
+		while (MyClient.GetFrame().Result != Result::Success)
+		{
+			// Sleep a little so that we don't lumber the CPU with a busy poll
+#ifdef WIN32
+			Sleep(200);
+#else
+			Sleep(200);
+			//sleep(1);
+#endif
+		}
 
+		// Get the frame number
+		Output_GetFrameNumber _Output_GetFrameNumber = MyClient.GetFrameNumber();
+		// Count the number of subjects
+		unsigned int SubjectCount = MyClient.GetSubjectCount().SubjectCount;
+
+		for (unsigned int SubjectIndex = 0; SubjectIndex < SubjectCount; ++SubjectIndex)
+		{
+			// Get the subject name
+			std::string SubjectName = MyClient.GetSubjectName(SubjectIndex).SubjectName;
+
+			// Count the number of markers
+			unsigned int MarkerCount = MyClient.GetMarkerCount(SubjectName).MarkerCount;
+			for (unsigned int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
+			{
+				// Get the marker name
+				std::string MarkerName = MyClient.GetMarkerName(SubjectName, MarkerIndex).MarkerName;
+
+				// Get the global marker translation
+				_Output_GetMarkerGlobalTranslation =
+					MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
+			}
+		}
+
+
+		// Get the labeled markers
+		unsigned int LabeledMarkerCount = MyClient.GetLabeledMarkerCount().MarkerCount;
+		std::cout << "    Labeled Markers (" << LabeledMarkerCount << "):" << std::endl;
+		for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
+		{
+			// Get the global marker translation
+			_Output_GetLabeledMarkerGlobalTranslation =
+				MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
+
+
+
+			std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
+				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
+		}
+	}
+}
 //------------------------------------------------------------------------------
 
