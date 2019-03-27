@@ -97,7 +97,7 @@ static double cube_size = 0.2;
 //----------------------------------------
 SerialPort serialPort;
 static bool serialOK = false;
-
+static bool cubeTransparent = false;
 static double quaternion[4];
 
 #pragma endregion Global variables - Serial Port
@@ -296,8 +296,10 @@ void updateGraphics(void);
 //Print headset position to file
 void PrintHMDPos(void);
 void PrintMarkerPos(void);
-
 void UpdateViconFrame(void);
+
+//Handle what to do when cube button pressed
+void OnButtonUp(void);
 
 //Move Cube
 void UpdateIMUCube(void);
@@ -578,15 +580,23 @@ int main(int argc, char* argv[])
 	camera = new cCamera(world);
 	world->addChild(camera);
 
-	// position and orient the camera
 	camera->set(
-		cVector3d(1.0, 0.5, 0.0),    // camera position (eye)
-		cVector3d(-1.0, 0.0, 0.0),    // lookat position (target)
+		cVector3d(1, 0, 0),       // Local Position of camera.
+		cVector3d(0, 0, 0),      // Local Look At position
+		cVector3d(0, 0, 1)        // Local Up Vector
+	);
+
+	/* position and orient the camera
+	camera->set(
+		cVector3d(-1.0, 0.5, 0.0),    // camera position (eye)
+		cVector3d(1.0, 0.0, 0.0),    // lookat position (target)
 		cVector3d(0.0, 1.0, 0.0)
-	);   // direction of the (up) vector
+	);   // direction of the (up) vector*/
 
 // set the near and far clipping planes of the camera
 	camera->setClippingPlanes(0.01, 10.0);
+
+	camera->setUseMultipassTransparency(true);
 
 	// create a directional light source
 	light = new cSpotLight(world);
@@ -608,6 +618,31 @@ int main(int argc, char* argv[])
 #pragma endregion CHAIWorld_Setup
 
 #pragma region
+	// Create Environment Globe
+
+	//Create a virtual mesh
+	cMesh* globe = new cMesh();
+	world->addChild(globe);
+	globe->setLocalPos(0, 0, 0);
+	cCreateSphere(globe, 6.0, 360, 360);
+	globe->setUseDisplayList(true);
+	globe->deleteCollisionDetector();
+	
+	if (oculusInit) {
+		cTexture2dPtr textureW = cTexture2d::create();
+		cout << "Loading world texture..." << endl;
+
+		bool fileload = textureW->loadFromFile(RESOURCE_PATH("../resources/infinity.jpg"));
+		if (!fileload) {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			cout << "Warning: failed ot load world texture. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+		globe->setTexture(textureW);
+		globe->setUseTexture(true);
+		globe->setUseCulling(false);
+		globe->setUseMaterial(false);
+	}
 
 	//--------------------------------------------------------------------------
 	// CREATING SHAPES
@@ -680,6 +715,40 @@ int main(int argc, char* argv[])
 		// compute tangent vectors
 		my_cube->computeBTN();
 	}
+
+
+	//---------------------OBJECT TEST 
+	/*
+	// a virtual object
+	cMultiMesh* object;
+	// create a virtual mesh
+	object = new cMultiMesh();
+	// add object to world
+	world->addChild(object);
+	// load an object file
+	bool fileload = object->loadFromFile(RESOURCE_PATH("../resources/leica.3ds"));
+	if (!fileload)
+	{
+#if defined(_MSVC)
+		fileload = object->loadFromFile("../../../bin/resources/leica.3ds");
+#endif
+	}
+	else cout << "Leica loaded!" << endl;
+	if (!fileload)
+	{
+		cout << "Error - 3D Model failed to load correctly" << endl;
+		//close();
+		//return (-1);
+	}
+
+	// disable culling so that faces are rendered on both sides
+	object->setUseCulling(false);
+
+	// center object in scene
+	object->setLocalPos(-1.0 * object->getBoundaryCenter());
+	// resize object to screen
+	double size = cSub(object->getBoundaryMax(), object->getBoundaryMin()).length();
+	object->scale(0.1);*/
 
 #pragma endregion CHAIShape_Setup
 
@@ -941,6 +1010,9 @@ void UpdateIMUCube() {
 				if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
 					string += (char)buffer;
 				}
+				else if (buffer == 65) {
+					OnButtonUp();
+				}
 				else if (buffer == 44) {
 					//cout << string;
 					stringBuffer.push_back(string);
@@ -948,7 +1020,7 @@ void UpdateIMUCube() {
 				}
 				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
 				{
-					cout << " endline ";
+				//	cout << " endline ";
 				}
 
 				else if (buffer = 59) {
@@ -967,7 +1039,7 @@ void UpdateIMUCube() {
 						}
 						catch (exception e) {}
 					}
-					else cout << "Wrong size array" << endl;
+					else cout << "Serial: Wrong size array of data." << endl;
 				}
 				else cout << "?";
 			}
@@ -1029,6 +1101,19 @@ void PrintMarkerPos() {
 	viconfile << (',');
 	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
 	viconfile << endl;
+}
+
+void OnButtonUp() {
+	cubeTransparent = !cubeTransparent;
+	if (cubeTransparent) {
+		my_cube->setTransparencyLevel(0.2);
+		my_cube->setUseCulling(false);
+	}
+	else {
+		my_cube->setTransparencyLevel(1);
+		my_cube->setUseCulling(true);
+	}
+		
 }
 
 void UpdateViconFrame() {
