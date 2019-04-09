@@ -1,5 +1,2 @@
-﻿  SerialPort.cpp
-c:\users\gchal\downloads\racecar-communication-interface-master\racecar-communication-interface-master\racecar communication interface\src\serialport.cpp(119): warning C4838: conversion from 'uint8_t' to 'char' requires a narrowing conversion
-c:\users\gchal\downloads\racecar-communication-interface-master\racecar-communication-interface-master\racecar communication interface\src\serialport.cpp(238): warning C4018: '>=': signed/unsigned mismatch
-  testProject.vcxproj -> C:\Users\gchal\source\repos\testProject\testProject\testProject\../../bin/win-x64\testProject.exe
-  testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Partial PDB)
+﻿  main.cpp
+e:\project\25 mar\testproject\testproject\testproject\main.cpp(11): fatal error C1083: Cannot open include file: 'DataStreamClient.h': No such file or directory

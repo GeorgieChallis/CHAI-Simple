@@ -22,6 +22,7 @@
 #include <vector>
 #include <string.h>
 #include <time.h>
+#include <cmath>
 
 #ifdef WIN32
 #include <conio.h>   // For _kbhit()
@@ -40,6 +41,19 @@ using namespace ViconDataStreamSDK::CPP;
 #pragma  endregion Namespaces
 
 #pragma region
+static bool trialRunning = false;
+static int numTrials = 0;
+double edistance; //Euclidean distance between cubes
+
+struct trial {
+	int moveType;
+};
+
+vector<trial> trialList;
+
+#pragma endregion Trial Data
+
+#pragma region
 //---------------------------------------------------------------------------
 // DECLARED VARIABLES
 //---------------------------------------------------------------------------
@@ -49,7 +63,7 @@ time_t startTime;
 HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 ofstream chaifile;
 ofstream viconfile;
-
+ofstream cubefile;
 //convert to resource path
 #define RESOURCE_PATH(p)	(char*)((resourceRoot+string(p)).c_str())
 
@@ -61,6 +75,7 @@ cCamera* camera;
 cSpotLight *light;
 // a few shape primitives that compose our scene
 cMesh* my_cube;
+cMesh* target_cube;
 
 // a flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -76,16 +91,19 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
-static bool trialRunning = false;
-int trialNumber = 0;
+
 
 cThread *cubeThread;
 
 //Values for changing the cube's position/size
-static double cube_posX = 0.0;
-static double cube_posY = 0.0;
-static double cube_posZ = 0.0;
+static double mycube_posX = 0.0;
+static double mycube_posY = 0.0;
+static double mycube_posZ = 0.0;
 static double cube_size = 0.2;
+
+static double targetcube_posX = 0.0;
+static double targetcube_posY = 0.0;
+static double targetcube_posZ = 0.0;
 
 //-----------------------------------------------------------------
 
@@ -97,7 +115,7 @@ static double cube_size = 0.2;
 //----------------------------------------
 SerialPort serialPort;
 static bool serialOK = false;
-
+static bool cubeTransparent = false;
 static double quaternion[4];
 
 #pragma endregion Global variables - Serial Port
@@ -119,6 +137,7 @@ cThread *viconThread;
 static bool viconConnected = false;
 Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation;
 Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation;
+Output_GetUnlabeledMarkerGlobalTranslation _Output_GetUnlabeledMarkerGlobalTranslation;
 
 ViconDataStreamSDK::CPP::Client MyClient;
 
@@ -296,14 +315,21 @@ void updateGraphics(void);
 //Print headset position to file
 void PrintHMDPos(void);
 void PrintMarkerPos(void);
+void PrintCubePos(void);
 
 void UpdateViconFrame(void);
+
+//Handle what to do when cube button pressed
+void OnButtonUp(void);
 
 //Move Cube
 void UpdateIMUCube(void);
 void MoveLeft(void);
 void MoveRight(void);
 void RotateCube(int x, int y, int z, double degrees);
+void MoveLeftSine();
+void MoveRightSine();
+void MoveDirection(char axis, double amnt);
 
 // this function closes the application
 void close(void);
@@ -312,7 +338,7 @@ void close(void);
 #pragma endregion Declared functions
 
 int main(int argc, char* argv[])
-{	
+{
 	// parse first arg to try and locate resources
 	string resourceRoot = string(argv[0]).substr(0, string(argv[0]).find_last_of("/\\") + 1);
 
@@ -327,29 +353,199 @@ int main(int argc, char* argv[])
 
 	string datetime = (string)asctime(timeinfo);
 	std::cout << "Session Start: " << datetime << endl;
+	std::cout << "----------------------------------------" << endl << endl;
 	std::cout << "Make sure all I/O devices are correctly connected now." << endl;
 
 	std::cout << "Type file name for logging (no spaces)" << endl;
 	string filename;
 	cin >> filename;
+	cout << "Enter the number of trials required:" << endl;
+	cin >> numTrials;
+
+	for (int i = 0; i < numTrials; i++) {
+		trial newTrial;
+		newTrial.moveType = rand() % 4 + 1;
+		cout << "i: " << i << ", trials: " << newTrial.moveType << endl;
+		trialList.push_back(newTrial);
+	}
 
 	string oculusFilename = filename + "_HMD.csv";
 	string viconFilename = filename + "_markers.csv";
+	string cubeFilename = filename + "_cube.csv";
+
 	chaifile.open(oculusFilename, ios::app);
 	viconfile.open(viconFilename, ios::app);
+	cubefile.open(cubeFilename, ios::app);
 
-	std::cout << datetime;
-	chaifile << datetime;
-
-	std::cout << endl;
-	std::cout << "----------------------------------------" << endl;
 #pragma endregion Log_Setup
+
+#pragma region
+
+	//--------------------------------------------------------------------------
+	// WORLD - CAMERA - LIGHTING
+	//--------------------------------------------------------------------------
+
+	// create a new world.
+	world = new cWorld();
+
+	// set the background color of the environment
+	world->m_backgroundColor.setBlack();
+
+	// create a camera and insert it into the virtual world
+	camera = new cCamera(world);
+	world->addChild(camera);
+
+	camera->set(
+		cVector3d(0, 1, 1.3),       // Local Position of camera.
+		cVector3d(0, 0, 1.3),      // Local Look At position
+		cVector3d(0, 0, 1)        // Local Up Vector
+	);
+
+	// position and orient the camera
+/*	camera->set(
+		cVector3d(-1.0, 0.5, 0.0),    // camera position (eye)
+		cVector3d(1.0, 0.0, 0.0),    // lookat position (target)
+		cVector3d(0.0, 1.0, 0.0)
+	);   // direction of the (up) vector*/
+
+	// set the near and far clipping planes of the camera
+	camera->setClippingPlanes(0.01, 10.0);
+
+	camera->setUseMultipassTransparency(true);
+
+	// create a directional light source
+	light = new cSpotLight(world);
+
+	// insert light source inside world
+	world->addChild(light);
+
+	// enable light source
+	light->setEnabled(true);
+
+	// define direction of light beam
+	light->setLocalPos(0.0, 2.0, 1.0);
+
+	// define the direction of the light beam
+	light->setDir(0, -1, 0);
+
+	// set light cone half angle
+	light->setCutOffAngleDeg(50);
+#pragma endregion CHAIWorld_Setup
+
+#pragma region
+
+
+	//--------------------------------------------------------------------------
+	// CREATING SHAPES
+	//-------------------------------------------------------------------------
+	my_cube = new cMesh();
+	world->addChild(my_cube);
+	// set position
+	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
+	chai3d::cCreateBox(my_cube, cube_size, cube_size, cube_size);
+
+	target_cube = new cMesh();
+	world->addChild(target_cube);
+	// set position
+	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ);
+	chai3d::cCreateBox(target_cube, cube_size, cube_size, cube_size);
+
+	target_cube->setTransparencyLevel(0.3);
+	target_cube->setUseCulling(false);
+
+	if (serialOK) {
+		// create a texture
+		cTexture2dPtr texture = cTexture2d::create();
+
+		std::cout << "Loading textures..." << endl;
+
+		bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
+		if (!fileload)
+		{
+#if defined(_MSVC)
+			fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
+#endif
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+			// set material color
+			my_cube->m_material->setRedFireBrick();
+		}
+		// apply texture to object
+		my_cube->setTexture(texture);
+		// enable texture rendering 
+		my_cube->setUseTexture(true);
+		// Since we don't need to see our polygons from both sides, we enable culling.
+		my_cube->setUseCulling(true);
+
+		std::cout << "Loading normal map..." << endl;
+
+		// create a normal texture
+		cNormalMapPtr normalMap = cNormalMap::create();
+
+		// load normal map from file
+		fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
+		if (!fileload)
+		{
+#if defined(_MSVC)
+			fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
+#endif
+		}
+		if (!fileload)
+		{
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+
+		// assign normal map to object
+		my_cube->m_normalMap = normalMap;
+		// compute surface normals
+		my_cube->computeAllNormals();
+		// compute tangent vectors
+		my_cube->computeBTN();
+	}
+
+	//---------------------OBJECT TEST 
+	// a virtual object
+	cMultiMesh* object;
+	// create a virtual mesh
+	object = new cMultiMesh();
+	// add object to world
+	my_cube->addChild(object);
+	object->setLocalPos(0, 0, 0.0);
+	// load an object file
+	bool fileload = object->loadFromFile(RESOURCE_PATH("../resources/Spooder.obj"));
+	if (!fileload)
+	{
+#if defined(_MSVC)
+		fileload = object->loadFromFile("../../../bin/resources/Spooder.obj");
+#endif
+	}
+	if (!fileload)
+	{
+		cout << "Error - 3D Model failed to load correctly" << endl;
+		//close();
+		//return (-1);
+	}
+
+	// disable culling so that faces are rendered on both sides
+	object->setUseCulling(false);
+
+	// resize object to screen
+	double size = cSub(object->getBoundaryMax(), object->getBoundaryMin()).length();
+	object->scale(0.02);
+
+#pragma endregion CHAIShape_Setup
 
 #pragma region
 	std::cout << "Looking for Serial Connection..." << std::endl;
 	serialOK = serialPort.connect();
 
-	if(serialOK) {
+	if (serialOK) {
 		Sleep(1000);
 		cout << "Found USB device!" << endl << endl;
 		cThread *serialThread;
@@ -364,91 +560,91 @@ int main(int argc, char* argv[])
 #pragma endregion Serial_Setup
 
 #pragma region
-//VICON-------------------------------------------
-//#define output_stream if(!LogFile.empty()) ; else std::cout 
+	//VICON-------------------------------------------
+	//#define output_stream if(!LogFile.empty()) ; else std::cout 
 
 	string HostName = "localhost:801"; //"134.225.86.151"
 	unsigned int ClientBufferSize = 0;
 	std::string AxisMapping = "ZUp";
 
-		//Make a new client
-		static int connectAttempts = 0;
-		std::cout << "VICON Connection Test:" << endl;
-		// Connect to a server
-		std::cout << "Connecting to " << HostName << " ..." << endl << std::flush;
+	//Make a new client
+	static int connectAttempts = 0;
+	std::cout << "VICON Connection Test:" << endl;
+	// Connect to a server
+	std::cout << "Connecting to " << HostName << " ..." << endl << std::flush;
 
-		for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
+	for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
+	{
+		while (!MyClient.IsConnected().Connected)
 		{
-			while (!MyClient.IsConnected().Connected)
-			{
-				// Direct connection
-				viconConnected = (MyClient.Connect(HostName).Result == Result::Success);
+			// Direct connection
+			viconConnected = (MyClient.Connect(HostName).Result == Result::Success);
 
-				if (!viconConnected)
-				{
-					connectAttempts++;
-					std::cout << ".";
-					if (connectAttempts > 2) { break; }
-				}
+			if (!viconConnected)
+			{
+				connectAttempts++;
+				std::cout << ".";
+				if (connectAttempts > 2) { break; }
+			}
 #ifdef WIN32
-				Sleep(1000);
+			Sleep(1000);
 #else
-				Sleep(200);
-				//sleep(1);
+			Sleep(200);
+			//sleep(1);
 #endif
-			}
 		}
-		if (!viconConnected) {
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << endl << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
-			SetConsoleTextAttribute(hConsole, 7);
-		}
-		else {
-			// Enable some different data types
-			MyClient.EnableSegmentData();
-			MyClient.EnableMarkerData();
-			MyClient.EnableUnlabeledMarkerData();
+	}
+	if (!viconConnected) {
+		SetConsoleTextAttribute(hConsole, 0x0e);
+		std::cout << endl << "Unable to connect to VICON. Marker tracking disabled." << endl << endl;
+		SetConsoleTextAttribute(hConsole, 7);
+	}
+	else {
+		// Enable some different data types
+		MyClient.EnableSegmentData();
+		MyClient.EnableMarkerData();
+		MyClient.EnableUnlabeledMarkerData();
 
-			// Set the streaming mode
-			MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
+		// Set the streaming mode
+		MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
 
-			// Set the global up axis
+		// Set the global up axis
+		MyClient.SetAxisMapping(Direction::Forward,
+			Direction::Left,
+			Direction::Up); // Z-up
+
+		if (AxisMapping == "YUp")
+		{
 			MyClient.SetAxisMapping(Direction::Forward,
-				Direction::Left,
-				Direction::Up); // Z-up
-
-			if (AxisMapping == "YUp")
-			{
-				MyClient.SetAxisMapping(Direction::Forward,
-					Direction::Up,
-					Direction::Right); // Y-up
-			}
-			else if (AxisMapping == "XUp")
-			{
-				MyClient.SetAxisMapping(Direction::Up,
-					Direction::Forward,
-					Direction::Left); // Y-up
-			}
-
-			Output_GetAxisMapping _Output_GetAxisMapping = MyClient.GetAxisMapping();
-			std::cout << "Vicon: Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
-				<< " Y-" << Adapt(_Output_GetAxisMapping.YAxis)
-				<< " Z-" << Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
-
-			if (ClientBufferSize > 0)
-			{
-				MyClient.SetBufferSize(ClientBufferSize);
-				std::cout << "Vicon: Setting client buffer size to " << ClientBufferSize << std::endl;
-			}
-			clock_t LastTime = clock();
-
-			//New thread to update VICON position
-			viconThread = new cThread();
-			viconThread->start(UpdateViconFrame, CTHREAD_PRIORITY_GRAPHICS);
-
-
-			
+				Direction::Up,
+				Direction::Right); // Y-up
 		}
+		else if (AxisMapping == "XUp")
+		{
+			MyClient.SetAxisMapping(Direction::Up,
+				Direction::Forward,
+				Direction::Left); // Y-up
+		}
+
+		Output_GetAxisMapping _Output_GetAxisMapping = MyClient.GetAxisMapping();
+		std::cout << "Vicon: Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
+			<< " Y-" << Adapt(_Output_GetAxisMapping.YAxis)
+			<< " Z-" << Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
+
+		if (ClientBufferSize > 0)
+		{
+			MyClient.SetBufferSize(ClientBufferSize);
+			std::cout << "Vicon: Setting client buffer size to " << ClientBufferSize << std::endl;
+		}
+		clock_t LastTime = clock();
+
+		//New thread to update VICON position
+		viconThread = new cThread();
+		viconThread->start(UpdateViconFrame, CTHREAD_PRIORITY_GRAPHICS);
+
+
+
+	}
 
 #pragma endregion VICON_Setup
 
@@ -521,7 +717,7 @@ int main(int argc, char* argv[])
 	{
 		SetConsoleTextAttribute(hConsole, 0x0e);
 		std::cout << "Failed to initialize Oculus." << endl;
-		std::cout << "Check HDMI and USB are connected" << endl <<endl;
+		std::cout << "Check HDMI and USB are connected" << endl << endl;
 		oculusInit = false;
 		cSleepMs(1000);
 		SetConsoleTextAttribute(hConsole, 7);
@@ -549,6 +745,8 @@ int main(int argc, char* argv[])
 		else {
 			oculusInit = true;
 			glfwSetWindowSize(window, windowSize.w, windowSize.h);
+
+
 		}
 	}
 
@@ -564,130 +762,42 @@ int main(int argc, char* argv[])
 
 #pragma region
 
-	//--------------------------------------------------------------------------
-	// WORLD - CAMERA - LIGHTING
-	//--------------------------------------------------------------------------
+#pragma endregion Run Trials
 
-	// create a new world.
-	world = new cWorld();
-
-	// set the background color of the environment
-	world->m_backgroundColor.setBlack();
-
-	// create a camera and insert it into the virtual world
-	camera = new cCamera(world);
-	world->addChild(camera);
-
-	// position and orient the camera
-	camera->set(
-		cVector3d(1.0, 0.5, 0.0),    // camera position (eye)
-		cVector3d(-1.0, 0.0, 0.0),    // lookat position (target)
-		cVector3d(0.0, 1.0, 0.0)
-	);   // direction of the (up) vector
-
-// set the near and far clipping planes of the camera
-	camera->setClippingPlanes(0.01, 10.0);
-
-	// create a directional light source
-	light = new cSpotLight(world);
-
-	// insert light source inside world
-	world->addChild(light);
-
-	// enable light source
-	light->setEnabled(true);
-
-	// define direction of light beam
-	light->setLocalPos(3.5, 2.0, 0.0);
-
-	// define the direction of the light beam
-	light->setDir(-3.5, -2.0, 0.0);
-
-	// set light cone half angle
-	light->setCutOffAngleDeg(50);
-#pragma endregion CHAIWorld_Setup
-
-#pragma region
-
-	//--------------------------------------------------------------------------
-	// CREATING SHAPES
-	//-------------------------------------------------------------------------
-	my_cube = new cMesh();
-	world->addChild(my_cube);
-
-	// set position
-	my_cube->setLocalPos(0, 0, 0);
-
-	chai3d::cCreateBox(my_cube, cube_size, cube_size, cube_size);
-
-	if (serialOK) {
-		// create a texture
-		cTexture2dPtr texture = cTexture2d::create();
-
-		std::cout << "Loading textures..." << endl;
-
-		bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
-		if (!fileload)
-		{
-#if defined(_MSVC)
-			fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
-#endif
-		}
-		if (!fileload)
-		{
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << "Warning: Cube texture failed to load correctly. Check file location." << endl;
-			SetConsoleTextAttribute(hConsole, 7);
-			// set material color
-			my_cube->m_material->setRedFireBrick();
-		}
-
-		// apply texture to object
-		my_cube->setTexture(texture);
-
-		// enable texture rendering 
-		my_cube->setUseTexture(true);
-
-		// Since we don't need to see our polygons from both sides, we enable culling.
-		my_cube->setUseCulling(true);
-
-		std::cout << "Loading normal map..." << endl;
-
-		// create a normal texture
-		cNormalMapPtr normalMap = cNormalMap::create();
-
-		// load normal map from file
-		fileload = normalMap->loadFromFile(RESOURCE_PATH("../resources/brick-normal.png"));
-		if (!fileload)
-		{
-#if defined(_MSVC)
-			fileload = normalMap->loadFromFile("../../../bin/resources/images/brick-normal.png");
-#endif
-		}
-		if (!fileload)
-		{
-			SetConsoleTextAttribute(hConsole, 0x0e);
-			std::cout << "Warning: Normal map failed to load correctly. Check file location." << endl;
-			SetConsoleTextAttribute(hConsole, 7);
-		}
-
-		// assign normal map to object
-		my_cube->m_normalMap = normalMap;
-
-		// compute surface normals
-		my_cube->computeAllNormals();
-
-		// compute tangent vectors
-		my_cube->computeBTN();
+	for (int i = 0; i < numTrials; i++) {
+		cout << "Trial #" << i + 1 << ": " << trialList[i].moveType << endl;
 	}
-
-#pragma endregion CHAIShape_Setup
 
 #pragma region
 
 	//--------------------------------------------------------------------------
 	// START SIMULATION
 	//--------------------------------------------------------------------------
+	if (oculusInit) {
+		//Create a virtual mesh
+		cout << "Setup globe" << endl;
+		cMesh* globe = new cMesh();
+
+		world->addChild(globe);
+		globe->setLocalPos(0, 0, 0);
+		cCreateSphere(globe, 6.0, 360, 360);
+		globe->setUseDisplayList(true);
+		globe->deleteCollisionDetector();
+		cTexture2dPtr textureW = cTexture2d::create();
+		cout << "Loading world texture..." << endl;
+
+		bool fileload = textureW->loadFromFile(RESOURCE_PATH("../resources/infinity.jpg"));
+		if (!fileload) {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			cout << "Warning: failed to load world texture. Check file location." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+		globe->setTexture(textureW);
+		globe->setUseTexture(true);
+		globe->setUseCulling(false);
+		globe->setUseMaterial(false);
+	}
+	
 	// setup callback when application exits
 	atexit(close);
 
@@ -697,7 +807,7 @@ int main(int argc, char* argv[])
 
 	std::cout << "Press [1] for trial 1, [2] for trial 2." << endl;
 
-	if (oculusInit) {		
+	if (oculusInit) {
 		oculusVR.recenterPose();
 		std::cout << "Centred HMD view." << endl;
 	}
@@ -710,8 +820,10 @@ int main(int argc, char* argv[])
 			glfwGetFramebufferSize(window, &width, &height);
 
 			oculusVR.onRenderStart();
-			PrintHMDPos();
-			PrintMarkerPos();
+			if ((_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
+				PrintHMDPos();
+				PrintMarkerPos();
+			}
 
 			// render frame for each eye
 			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
@@ -732,8 +844,11 @@ int main(int argc, char* argv[])
 
 				// finalize rendering  
 				oculusVR.onEyeRenderFinish(eyeIndex);
-			}
 
+				// render graphics
+
+			}
+			updateGraphics();
 			// update frames
 			oculusVR.submitFrame();
 			oculusVR.blitMirror();
@@ -753,7 +868,7 @@ int main(int argc, char* argv[])
 		glfwPollEvents();
 	}
 #pragma endregion Simulation
-	
+
 	// close window
 	glfwDestroyWindow(window);
 
@@ -806,8 +921,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_1) {
 		//Start trial 1
 		std::cout << "Starting Trial 1: Right to Left" << endl;
-		cube_posZ = 0.5;
-		cube_posY = 0.2;
+		targetcube_posX = 0.5;
+		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
@@ -822,8 +937,8 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_2) {
 		//Start trial 2
 		std::cout << "Starting Trial 2: Left to Right" << endl;
-		cube_posZ = -0.5;
-		cube_posY = 0.2;
+		targetcube_posX = -0.5;
+		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
 			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
@@ -835,16 +950,71 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		}
 	}
 	else if (a_key == GLFW_KEY_3) {
+		//Start trial 2
+		std::cout << "Starting Trial 3: Left to Right (Sine Wave)" << endl;
+		targetcube_posX = -0.5;
+		//cube_posZ = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveRightSine, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Error: Finish previous trial before next one." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+	}
+	else if (a_key == GLFW_KEY_4) {
+		//Start trial 2
+		std::cout << "Starting Trial 4: Right to Left (Sine Wave)" << endl;
+		targetcube_posX = 0.5;
+		//cube_posZ = 0.2;
+		if (!trialRunning) {
+			cubeThread = new cThread();
+			cubeThread->start(MoveLeftSine, CTHREAD_PRIORITY_GRAPHICS);
+		}
+		else {
+			SetConsoleTextAttribute(hConsole, 0x0e);
+			std::cout << "Error: Finish previous trial before next one." << endl;
+			SetConsoleTextAttribute(hConsole, 7);
+		}
+	}
+	else if (a_key == GLFW_KEY_5) {
 		//Rotate X
 		RotateCube(1, 0, 0, 10);
 	}
-	else if (a_key == GLFW_KEY_4) {
+	else if (a_key == GLFW_KEY_6) {
 		//Rotate Y
 		RotateCube(0, 1, 0, 10);
 	}
-	else if (a_key == GLFW_KEY_5) {
+	else if (a_key == GLFW_KEY_7) {
 		//Rotate Z
 		RotateCube(0, 0, 1, 10);
+	}
+
+	else if (a_key == GLFW_KEY_W) {
+		cout << "W";
+		MoveDirection('y', -0.1);
+	}
+	else if (a_key == GLFW_KEY_A) {
+		//Move left
+		MoveDirection('x', 0.1);
+	}
+	else if (a_key == GLFW_KEY_S) {
+		//Move backward
+		MoveDirection('y', 0.1);
+	}
+	else if (a_key == GLFW_KEY_D) {
+		//Move right
+		MoveDirection('x', -0.1);
+	}
+	else if (a_key == GLFW_KEY_R) {
+	//Move up
+		MoveDirection('z', 0.1);
+	}
+	else if (a_key == GLFW_KEY_F) {
+	//Move down
+		MoveDirection('z', -0.1);
 	}
 }
 
@@ -859,7 +1029,7 @@ void close(void)
 		serialPort.disconnect();
 	}
 
-	if(viconConnected){
+	if (viconConnected) {
 		MyClient.DisableSegmentData();
 		MyClient.DisableMarkerData();
 		MyClient.DisableUnlabeledMarkerData();
@@ -873,7 +1043,7 @@ void close(void)
 		double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
 		std::cout << " Disconnect time = " << secs << " secs" << std::endl;
 	}
-	
+
 	// stop the simulation
 	simulationRunning = false;
 
@@ -894,12 +1064,17 @@ void updateGraphics(void)
 	camera->renderView(width, height);
 
 	//set cube pos
-	my_cube->setLocalPos(cube_posX, cube_posY, cube_posZ);
+	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
+	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.4);
+
+	//PrintCubePos();
+
 
 	if (serialOK) {
 		cQuaternion qRotation = quaternion;
+		//cout << quaternion[0] << "," << quaternion[1] << "," << quaternion[2] << "," << quaternion[3] <<endl;
 		cMatrix3d qRotMatrix;
-		cMatrix3d localRot = my_cube->getLocalRot();
+		cMatrix3d localRotA = my_cube->getLocalRot();
 		qRotation.toRotMat(qRotMatrix);
 		my_cube->setLocalRot(qRotMatrix);
 	}
@@ -932,7 +1107,7 @@ void UpdateIMUCube() {
 
 		while (buffer = serialPort.readByte())
 		{
-		//	cout << "Buffer enter";
+			//	cout << "Buffer enter";
 			if (!dataReceived) {
 				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
 			}
@@ -941,6 +1116,9 @@ void UpdateIMUCube() {
 				if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
 					string += (char)buffer;
 				}
+				else if (buffer == 65) {
+					OnButtonUp();
+				}
 				else if (buffer == 44) {
 					//cout << string;
 					stringBuffer.push_back(string);
@@ -948,7 +1126,7 @@ void UpdateIMUCube() {
 				}
 				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
 				{
-					cout << " endline ";
+					//	cout << " endline ";
 				}
 
 				else if (buffer = 59) {
@@ -967,7 +1145,7 @@ void UpdateIMUCube() {
 						}
 						catch (exception e) {}
 					}
-					else cout << "Wrong size array" << endl;
+					else cout << "Serial: Wrong size array of data." << endl;
 				}
 				else cout << "?";
 			}
@@ -976,10 +1154,32 @@ void UpdateIMUCube() {
 
 }
 
+void MoveLeftSine() {
+	trialRunning = true;
+	while (targetcube_posX > -0.5) {
+		targetcube_posX -= 0.0005;
+		targetcube_posZ = 0.1*(std::sin(10 * targetcube_posX));
+		cSleepMs(1);
+	}
+	trialRunning = false;
+	return;
+}
+
+void MoveRightSine() {
+	trialRunning = true;
+	while (targetcube_posX < 0.5) {
+		targetcube_posX += 0.0005;
+		targetcube_posZ = 0.1*(sin(10 * targetcube_posX));
+		cSleepMs(1);
+	}
+	trialRunning = false;
+	return;
+}
+
 void MoveLeft() {
 	trialRunning = true;
-	while (cube_posZ > -0.5) {
-		cube_posZ -= 0.001;
+	while (targetcube_posX > -0.5) {
+		targetcube_posX -= 0.0005;
 		cSleepMs(1);
 	}
 	trialRunning = false;
@@ -988,12 +1188,28 @@ void MoveLeft() {
 
 void MoveRight() {
 	trialRunning = true;
-	while (cube_posZ < 0.5) {
-		cube_posZ += 0.001;
+	while (targetcube_posX < 0.5) {
+		targetcube_posX += 0.0005;
 		cSleepMs(1);
 	}
 	trialRunning = false;
 	return;
+}
+
+void MoveDirection(char axis, double amnt) {
+	if (axis == 'x') {
+		mycube_posX += amnt;
+		cout << amnt;
+	}
+	else if (axis == 'y') {
+		mycube_posY += amnt;
+		cout << amnt;
+	}
+	else if (axis == 'z') {
+		mycube_posZ += amnt;
+		cout << "x";
+	}
+	else return;
 }
 
 void RotateCube(int x, int y, int z, double degrees)
@@ -1023,12 +1239,45 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
+	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
 	viconfile << (',');
-	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
+	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
 	viconfile << (',');
-	viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
+	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
 	viconfile << endl;
+}
+
+void PrintCubePos() {
+	double myx = my_cube->getLocalPos().x();
+	double myy = my_cube->getLocalPos().y();
+	double myz = my_cube->getLocalPos().z();
+	double targetx = target_cube->getLocalPos().x();
+	double targety = target_cube->getLocalPos().y();
+	double targetz = target_cube->getLocalPos().z();
+	edistance = sqrt(pow((targetx - myx), 2) + pow((targety - myy), 2) + pow((targetz - myz), 2));
+	cubefile << targetx << "," << targety << "," << targetz << ",";
+	cubefile << myx << "," << myy << "," << myz << ",";
+	cubefile << edistance << endl;
+}
+
+void OnButtonUp() {
+	cubeTransparent = !cubeTransparent;
+	if (cubeTransparent) {
+		my_cube->setTransparencyLevel(0.2);
+		my_cube->setUseCulling(false);
+	}
+	else {
+		my_cube->setTransparencyLevel(1);
+		my_cube->setUseCulling(true);
+	}
+}
+
+void createTrials(int total) {
+	
+}
+
+void CallMotor() {
+	serialPort.
 }
 
 void UpdateViconFrame() {
@@ -1074,25 +1323,55 @@ void UpdateViconFrame() {
 					MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
 			}
 		}
-
+		// Get the unlabeled markers
+		unsigned int UnlabeledMarkerCount = MyClient.GetUnlabeledMarkerCount().MarkerCount;
+		std::cout << "Unlabeled Markers (" << UnlabeledMarkerCount << "):" << std::endl;
+		//for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
+		for (unsigned int UnlabeledMarkerIndex = 0; UnlabeledMarkerIndex < 1; ++UnlabeledMarkerIndex)
+		{
+			// Get the global marker translation
+			_Output_GetUnlabeledMarkerGlobalTranslation =
+				MyClient.GetUnlabeledMarkerGlobalTranslation(UnlabeledMarkerIndex);
+			if (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0){
+				double HMDX = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] / 1000);
+				double HMDY = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
+				double HMDZ = (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
+			}
+		}
 
 		// Get the labeled markers
 		unsigned int LabeledMarkerCount = MyClient.GetLabeledMarkerCount().MarkerCount;
 		std::cout << "    Labeled Markers (" << LabeledMarkerCount << "):" << std::endl;
-		for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
+		//for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
+		for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < 1; ++LabeledMarkerIndex)
 		{
 			// Get the global marker translation
 			_Output_GetLabeledMarkerGlobalTranslation =
 				MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
+			double Marker1X = -(_Output_GetLabeledMarkerGlobalTranslation.Translation[0] / 1000);
+			double Marker1Y = -(_Output_GetLabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
+			double Marker1Z = (_Output_GetLabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
 
 
 
-			std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
-				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
-				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
-				<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
+			cout << "Marker 1: XYZ = " << Marker1X << ", " << Marker1Y << ", " << Marker1Z << "!" << endl;
+			/*	std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
+			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
+			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
+			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
+			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
+			viconfile << (',');
+			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
+			viconfile << (',');
+			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
+			viconfile << endl;*/
+			mycube_posX = Marker1X;
+			mycube_posY = Marker1Y;
+			mycube_posZ = Marker1Z;
 		}
 	}
 }
+
+
 //------------------------------------------------------------------------------
 
