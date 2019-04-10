@@ -1064,8 +1064,8 @@ void updateGraphics(void)
 	camera->renderView(width, height);
 
 	//set cube pos
-	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
-	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.4);
+	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ+1.3);
+	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.0);
 
 	//PrintCubePos();
 
@@ -1277,7 +1277,7 @@ void createTrials(int total) {
 }
 
 void CallMotor() {
-	serialPort.
+	//serialPort.
 }
 
 void UpdateViconFrame() {
