@@ -331,6 +331,8 @@ void MoveLeftSine();
 void MoveRightSine();
 void MoveDirection(char axis, double amnt);
 
+void CallMotor(int pwm);
+
 // this function closes the application
 void close(void);
 
@@ -551,6 +553,7 @@ int main(int argc, char* argv[])
 		cThread *serialThread;
 		serialThread = new cThread();
 		serialThread->start(UpdateIMUCube, CTHREAD_PRIORITY_GRAPHICS);
+		CallMotor(255);
 	}
 	else {
 		SetConsoleTextAttribute(hConsole, 0x0e);
@@ -1276,8 +1279,13 @@ void createTrials(int total) {
 	
 }
 
-void CallMotor() {
-	//serialPort.
+void CallMotor(int pwm) {
+	byte pwmByte = (byte)pwm;
+	if (serialOK) {
+		if (pwm >= 0 && pwm < 256) {
+			serialPort.writeByte(pwm);
+		}
+	}
 }
 
 void UpdateViconFrame() {
