@@ -65,7 +65,7 @@ ofstream chaifile;
 ofstream viconfile;
 ofstream cubefile;
 //convert to resource path
-#define RESOURCE_PATH(p)	(char*)((resourceRoot+string(p)).c_str())
+#define RESOURCE_PATH(p)    (char*)((resourceRoot+string(p)).c_str())
 
 // a world that contains all objects of the virtual environment
 cWorld* world;
@@ -111,7 +111,7 @@ static double targetcube_posZ = 0.0;
 
 #pragma region
 //----------------------------------------
-//	SETUP Serial
+//    SETUP Serial
 //----------------------------------------
 SerialPort serialPort;
 static bool serialOK = false;
@@ -138,6 +138,8 @@ static bool viconConnected = false;
 Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation;
 Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation;
 Output_GetUnlabeledMarkerGlobalTranslation _Output_GetUnlabeledMarkerGlobalTranslation;
+Output_GetSegmentGlobalTranslation _Output_GetSegmentGlobalTranslation;
+Output_GetSegmentGlobalRotationQuaternion _Output_GetSegmentGlobalRotationQuaternion;
 
 ViconDataStreamSDK::CPP::Client MyClient;
 
@@ -404,7 +406,7 @@ int main(int argc, char* argv[])
 	);
 
 	// position and orient the camera
-/*	camera->set(
+/*    camera->set(
 		cVector3d(-1.0, 0.5, 0.0),    // camera position (eye)
 		cVector3d(1.0, 0.0, 0.0),    // lookat position (target)
 		cVector3d(0.0, 1.0, 0.0)
@@ -800,7 +802,7 @@ int main(int argc, char* argv[])
 		globe->setUseCulling(false);
 		globe->setUseMaterial(false);
 	}
-	
+
 	// setup callback when application exits
 	atexit(close);
 
@@ -1012,11 +1014,11 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		MoveDirection('x', -0.1);
 	}
 	else if (a_key == GLFW_KEY_R) {
-	//Move up
+		//Move up
 		MoveDirection('z', 0.1);
 	}
 	else if (a_key == GLFW_KEY_F) {
-	//Move down
+		//Move down
 		MoveDirection('z', -0.1);
 	}
 }
@@ -1067,8 +1069,8 @@ void updateGraphics(void)
 	camera->renderView(width, height);
 
 	//set cube pos
-	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ+1.3);
-	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.0);
+	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ + 1.3);
+	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ + 1.0);
 
 	//PrintCubePos();
 
@@ -1110,7 +1112,7 @@ void UpdateIMUCube() {
 
 		while (buffer = serialPort.readByte())
 		{
-			//	cout << "Buffer enter";
+			//    cout << "Buffer enter";
 			if (!dataReceived) {
 				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
 			}
@@ -1129,7 +1131,7 @@ void UpdateIMUCube() {
 				}
 				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
 				{
-					//	cout << " endline ";
+					//    cout << " endline ";
 				}
 
 				else if (buffer = 59) {
@@ -1276,7 +1278,7 @@ void OnButtonUp() {
 }
 
 void createTrials(int total) {
-	
+
 }
 
 void CallMotor(int pwm) {
@@ -1316,9 +1318,10 @@ void UpdateViconFrame() {
 
 		for (unsigned int SubjectIndex = 0; SubjectIndex < SubjectCount; ++SubjectIndex)
 		{
+
 			// Get the subject name
 			std::string SubjectName = MyClient.GetSubjectName(SubjectIndex).SubjectName;
-
+			cout << "Subject Name: " << SubjectName << endl;
 			// Count the number of markers
 			unsigned int MarkerCount = MyClient.GetMarkerCount(SubjectName).MarkerCount;
 			for (unsigned int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
@@ -1330,7 +1333,44 @@ void UpdateViconFrame() {
 				_Output_GetMarkerGlobalTranslation =
 					MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
 			}
+			// Count the number of segments
+			unsigned int SegmentCount = MyClient.GetSegmentCount(SubjectName).SegmentCount;
+			cout << "    Segments (" << SegmentCount << "):" << std::endl;
+			for (unsigned int SegmentIndex = 0; SegmentIndex < SegmentCount; ++SegmentIndex)
+			{
+				cout << "      Segment #" << SegmentIndex << std::endl;
+				// Get the segment name
+				std::string SegmentName = MyClient.GetSegmentName(SubjectName, SegmentIndex).SegmentName;
+
+				// Get the static segment translation
+				Output_GetSegmentStaticTranslation _Output_GetSegmentStaticTranslation =
+					MyClient.GetSegmentStaticTranslation(SubjectName, SegmentName);
+				cout << "        Static Translation: (" << _Output_GetSegmentStaticTranslation.Translation[0] << ", "
+					<< _Output_GetSegmentStaticTranslation.Translation[1] << ", "
+					<< _Output_GetSegmentStaticTranslation.Translation[2] << ")" << std::endl;
+
+				// Get the global segment translation
+				_Output_GetSegmentGlobalTranslation =
+					MyClient.GetSegmentGlobalTranslation(SubjectName, SegmentName);
+				cout << "        Global Translation: (" << _Output_GetSegmentGlobalTranslation.Translation[0] << ", "
+					<< _Output_GetSegmentGlobalTranslation.Translation[1] << ", "
+					<< _Output_GetSegmentGlobalTranslation.Translation[2] << ") "
+					<< Adapt(_Output_GetSegmentGlobalTranslation.Occluded) << std::endl;
+
+				// Get the global segment rotation in quaternion co-ordinates
+				_Output_GetSegmentGlobalRotationQuaternion =
+					MyClient.GetSegmentGlobalRotationQuaternion(SubjectName, SegmentName);
+				cout << "        Global Rotation Quaternion: (" << _Output_GetSegmentGlobalRotationQuaternion.Rotation[0] << ", "
+					<< _Output_GetSegmentGlobalRotationQuaternion.Rotation[1] << ", "
+					<< _Output_GetSegmentGlobalRotationQuaternion.Rotation[2] << ", "
+					<< _Output_GetSegmentGlobalRotationQuaternion.Rotation[3] << ") "
+					<< Adapt(_Output_GetSegmentGlobalRotationQuaternion.Occluded) << std::endl;
+			}
 		}
+
+
+
+
 		// Get the unlabeled markers
 		unsigned int UnlabeledMarkerCount = MyClient.GetUnlabeledMarkerCount().MarkerCount;
 		std::cout << "Unlabeled Markers (" << UnlabeledMarkerCount << "):" << std::endl;
@@ -1340,7 +1380,7 @@ void UpdateViconFrame() {
 			// Get the global marker translation
 			_Output_GetUnlabeledMarkerGlobalTranslation =
 				MyClient.GetUnlabeledMarkerGlobalTranslation(UnlabeledMarkerIndex);
-			if (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0){
+			if (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0) {
 				double HMDX = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] / 1000);
 				double HMDY = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
 				double HMDZ = (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
@@ -1363,23 +1403,32 @@ void UpdateViconFrame() {
 
 
 			cout << "Marker 1: XYZ = " << Marker1X << ", " << Marker1Y << ", " << Marker1Z << "!" << endl;
-			/*	std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
-			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[0] << ", "
-			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[1] << ", "
-			<< _Output_GetLabeledMarkerGlobalTranslation.Translation[2] << ")" << std::endl;
+			std::cout << "      Marker #" << LabeledMarkerIndex << ": ("
+				<< _Output_GetSegmentGlobalTranslation.Translation[0] << ", "
+				<< _Output_GetSegmentGlobalTranslation.Translation[1] << ", "
+				<< _Output_GetSegmentGlobalTranslation.Translation[2] << ")" << std::endl;
 			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
 			viconfile << (',');
 			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
 			viconfile << (',');
 			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
-			viconfile << endl;*/
-			mycube_posX = Marker1X;
-			mycube_posY = Marker1Y;
-			mycube_posZ = Marker1Z;
+			viconfile << (",");
+			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[0]);
+			viconfile << (",");
+			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[1]);
+			viconfile << (",");
+			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[2]);
+			viconfile << (",");
+			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[3]);
+			viconfile << endl;
+			//mycube_posX = Marker1X-0.4;
+			//mycube_posY = Marker1Y+1;
+			//mycube_posZ = Marker1Z-1.5;
 		}
 	}
 }
 
 
 //------------------------------------------------------------------------------
+
 
