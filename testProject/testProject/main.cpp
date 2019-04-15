@@ -67,6 +67,9 @@ ofstream cubefile;
 //convert to resource path
 #define RESOURCE_PATH(p)    (char*)((resourceRoot+string(p)).c_str())
 
+cFrequencyCounter frequencyCounter;
+cLabel* labelRates;
+
 // a world that contains all objects of the virtual environment
 cWorld* world;
 // a camera to render the world in the window display
@@ -434,6 +437,19 @@ int main(int argc, char* argv[])
 
 	// set light cone half angle
 	light->setCutOffAngleDeg(50);
+
+	// a font for rendering text
+	cFontPtr font;
+
+	// create a font
+	font = NEW_CFONTCALIBRI20();
+
+	// create a label to display the haptic and graphic rate of the simulation
+	labelRates = new cLabel(font);
+	labelRates->m_fontColor.setWhite();
+	camera->m_frontLayer->addChild(labelRates);
+
+
 #pragma endregion CHAIWorld_Setup
 
 #pragma region
@@ -866,6 +882,9 @@ int main(int argc, char* argv[])
 			updateGraphics();
 		}
 
+		// signal frequency counter
+		frequencyCounter.signal(1);
+
 		// swap buffers
 		glfwSwapBuffers(window);
 
@@ -1074,6 +1093,12 @@ void updateGraphics(void)
 
 	//PrintCubePos();
 
+	// update haptic and graphic rate data
+	const std::string fps = cStr(frequencyCounter.getFrequency(),2);
+	labelRates->setText(fps + " FPS");
+
+	// update position of label
+	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
 
 	if (serialOK) {
 		cQuaternion qRotation = quaternion;
