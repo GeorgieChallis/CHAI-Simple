@@ -841,10 +841,12 @@ int main(int argc, char* argv[])
 			glfwGetFramebufferSize(window, &width, &height);
 
 			oculusVR.onRenderStart();
-			if ((_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
+
+
+			//if ((_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
 				PrintHMDPos();
 				PrintMarkerPos();
-			}
+		//	}
 
 			// render frame for each eye
 			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
@@ -1091,7 +1093,7 @@ void updateGraphics(void)
 	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ + 1.3);
 	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ + 1.0);
 
-	//PrintCubePos();
+	PrintCubePos();
 
 	// update haptic and graphic rate data
 	const std::string fps = cStr(frequencyCounter.getFrequency(),2);
@@ -1207,10 +1209,12 @@ void MoveRightSine() {
 }
 
 void MoveLeft() {
+	double unitsPerSec = 0.1;
+	double deltaT = 1 / frequencyCounter.getFrequency();
 	trialRunning = true;
 	while (targetcube_posX > -0.5) {
-		targetcube_posX -= 0.0005;
-		cSleepMs(1);
+		targetcube_posX -= unitsPerSec * deltaT;
+		//cSleepMs(1);
 	}
 	trialRunning = false;
 	return;
@@ -1269,11 +1273,19 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
+	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[0]);
 	viconfile << (',');
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
+	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[1]);
 	viconfile << (',');
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
+	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[2]);
+	viconfile << (",");
+	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[0]);
+	viconfile << (",");
+	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[1]);
+	viconfile << (",");
+	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[2]);
+	viconfile << (",");
+	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[3]);
 	viconfile << endl;
 }
 
@@ -1432,20 +1444,7 @@ void UpdateViconFrame() {
 				<< _Output_GetSegmentGlobalTranslation.Translation[0] << ", "
 				<< _Output_GetSegmentGlobalTranslation.Translation[1] << ", "
 				<< _Output_GetSegmentGlobalTranslation.Translation[2] << ")" << std::endl;
-			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[0]);
-			viconfile << (',');
-			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[1]);
-			viconfile << (',');
-			viconfile << (_Output_GetLabeledMarkerGlobalTranslation.Translation[2]);
-			viconfile << (",");
-			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[0]);
-			viconfile << (",");
-			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[1]);
-			viconfile << (",");
-			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[2]);
-			viconfile << (",");
-			viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[3]);
-			viconfile << endl;
+
 			//mycube_posX = Marker1X-0.4;
 			//mycube_posY = Marker1Y+1;
 			//mycube_posZ = Marker1Z-1.5;

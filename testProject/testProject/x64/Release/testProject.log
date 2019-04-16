@@ -6,11 +6,11 @@ main.cpp(690): warning C4244: 'initializing': conversion from 'double' to 'int',
 main.cpp(691): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(692): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(693): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(1296): warning C4305: 'argument': truncation from 'double' to 'const float'
+main.cpp(1298): warning C4305: 'argument': truncation from 'double' to 'const float'
   Generating code
-  90 of 642 functions (14.0%) were compiled, the rest were copied from previous compilation.
+  77 of 648 functions (11.9%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    27 functions had inline decision re-evaluated but remain unchanged
+    1 functions had inline decision re-evaluated but remain unchanged
   Finished generating code
   testProject.vcxproj -> C:\Users\gchal\Desktop\1\CHAI-Simple\testProject\testProject\../../bin/win-x64\testProject.exe
   testProject.vcxproj -> ../../bin/win-x64\testProject.pdb (Full PDB)
