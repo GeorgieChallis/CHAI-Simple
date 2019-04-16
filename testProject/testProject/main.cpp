@@ -842,11 +842,30 @@ int main(int argc, char* argv[])
 
 			oculusVR.onRenderStart();
 
-
-			//if ((_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
+			double translate1 = _Output_GetSegmentGlobalTranslation.Translation[0]/1000;
+			double translate2 = _Output_GetSegmentGlobalTranslation.Translation[1]/1000;
+			double translate3 = _Output_GetSegmentGlobalTranslation.Translation[2]/1000;
+			double q1 = _Output_GetSegmentGlobalRotationQuaternion.Rotation[0];
+			double q2 = _Output_GetSegmentGlobalRotationQuaternion.Rotation[1];
+			double q3 = _Output_GetSegmentGlobalRotationQuaternion.Rotation[2];
+			double q4 = _Output_GetSegmentGlobalRotationQuaternion.Rotation[3];
+		if ((translate1 != 0) && ( translate2 != 0) && ( translate3 != 0)) {
+			viconfile << (translate1);
+			viconfile << (',');
+			viconfile << (translate2);
+			viconfile << (',');
+			viconfile << (translate3);
+				viconfile << (",");
+				viconfile << (q1);
+				viconfile << (",");
+				viconfile << (q2);
+				viconfile << (",");
+				viconfile << (q3);
+				viconfile << (",");
+				viconfile << (q4);
+			viconfile << endl;
 				PrintHMDPos();
-				PrintMarkerPos();
-		//	}
+			}
 
 			// render frame for each eye
 			for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
@@ -1273,20 +1292,7 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[0]);
-	viconfile << (',');
-	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[1]);
-	viconfile << (',');
-	viconfile << (_Output_GetSegmentGlobalTranslation.Translation[2]);
-	viconfile << (",");
-	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[0]);
-	viconfile << (",");
-	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[1]);
-	viconfile << (",");
-	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[2]);
-	viconfile << (",");
-	viconfile << (_Output_GetSegmentGlobalRotationQuaternion.Rotation[3]);
-	viconfile << endl;
+
 }
 
 void PrintCubePos() {
