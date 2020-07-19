@@ -12,3 +12,8 @@ To demonstrate this capability, a 3D-printed Arduino peripheral was created to s
 * UbiCube custom controller 
 * CHAI3D compatible haptic devices
 * Vicon tracking software
+
+## Future Improvements
+1. Re-factor code into different classes - more OOP approach
+2. Unit tests for key functionality
+3. Separate out Psych demo from the main framework
