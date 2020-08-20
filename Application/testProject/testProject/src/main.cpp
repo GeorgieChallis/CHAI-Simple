@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string.h>
-#include <time.h>
+
 #include <cmath>
 
 #ifdef WIN32
@@ -28,9 +28,11 @@
 #include "Defaults.h"
 
 
-
+#include "ubLogger.h"
 #include "ubCube.h"
 #pragma endregion Includes
+
+#define RESOURCE_PATH(p)	(char*)((resourceRoot+std::string(p)).c_str())
 
 #pragma region
 //-Namespaces-------------------------------------------------------------------
@@ -56,16 +58,6 @@ std::vector<trial> trialList;
 //---------------------------------------------------------------------------
 // DECLARED VARIABLES
 //---------------------------------------------------------------------------
-// ------ LOGGING -----------
-time_t startTime;
-//Console
-HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-std::ofstream chaifile;
-std::ofstream viconfile;
-std::ofstream cubefile;
-//convert to resource path
-#define RESOURCE_PATH(p)	(char*)((resourceRoot+std::string(p)).c_str())
-
 // a world that contains all objects of the virtual environment
 cWorld* world;
 // a camera to render the world in the window display
@@ -91,10 +83,9 @@ int height = 0;
 int swapInterval = 1;
 
 
-
 cThread *cubeThread;
 
-//Values for changing the cube's position/size
+//Values for changing the visible cube's position/size
 static double mycube_posX = 0.0;
 static double mycube_posY = 0.0;
 static double mycube_posZ = 0.0;
@@ -107,8 +98,6 @@ static double targetcube_posZ = 0.0;
 //-----------------------------------------------------------------
 
 #pragma endregion Global variables - CHAI
-
-static double quaternion[4];
 
 #pragma region
 //----------------------------------------
@@ -286,7 +275,8 @@ bool Hit()
 #endif
 #pragma endregion Global variables - VICON
 
-ubCube ubiCube;
+static ubCube ubiCube;
+ubLogger ubLog;
 
 #pragma region
 //------------------------------------------------------------------------------
@@ -307,12 +297,11 @@ void updateGraphics(void);
 //Print headset position to file
 void PrintHMDPos(void);
 void PrintMarkerPos(void);
-void PrintCubePos(void);
 
+void UpdateMyCube(void);
 void UpdateViconFrame(void);
 
 //Move Cube
-void UpdateIMUCube(void);
 void MoveLeft(void);
 void MoveRight(void);
 void RotateCube(int x, int y, int z, double degrees);
@@ -333,15 +322,18 @@ int main(int argc, char* argv[])
 
 #pragma region
 	//LOGGING--------------------------
-	SetConsoleTextAttribute(hConsole, 7);
-	startTime = clock();
+
+	ubLog.startTime = clock();
 
 	struct tm * timeinfo;
-	time(&startTime);
-	timeinfo = localtime(&startTime);
+	time(&ubLog.startTime);
+	timeinfo = localtime(&ubLog.startTime);
 
 	std::string datetime = (std::string)asctime(timeinfo);
+
+
 	std::cout  << "Session Start: " << datetime << std::endl;
+	ubLog.logInit();
 	std::cout  << "----------------------------------------" << std::endl << std::endl;
 	std::cout  << "Make sure all I/O devices are correctly connected now." << std::endl;
 
@@ -362,9 +354,9 @@ int main(int argc, char* argv[])
 	std::string viconFilename = filename + "_markers.csv";
 	std::string cubeFilename = filename + "_cube.csv";
 
-	chaifile.open(oculusFilename, std::ios::app);
-	viconfile.open(viconFilename, std::ios::app);
-	cubefile.open(cubeFilename, std::ios::app);
+	ubLog.chaifile.open(oculusFilename, std::ios::app);
+	ubLog.viconfile.open(viconFilename, std::ios::app);
+	ubLog.cubefile.open(cubeFilename, std::ios::app);
 
 #pragma endregion Log_Setup
 
@@ -457,9 +449,9 @@ int main(int argc, char* argv[])
 		}
 		if (!fileload)
 		{
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Warning: Cube texture failed to load correctly. Check file location." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 			// set material color
 			my_cube->m_material->setRedFireBrick();
 		}
@@ -485,9 +477,9 @@ int main(int argc, char* argv[])
 		}
 		if (!fileload)
 		{
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Warning: Normal map failed to load correctly. Check file location." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 
 		// assign normal map to object
@@ -539,20 +531,20 @@ int main(int argc, char* argv[])
 		std::cout  << "Found USB device!" << std::endl << std::endl;
 		cThread *serialThread;
 		serialThread = new cThread();
-		serialThread->start(UpdateIMUCube, CTHREAD_PRIORITY_GRAPHICS);
+		serialThread->start(UpdateMyCube, CTHREAD_PRIORITY_GRAPHICS);
+
+		//void cThread::start(void(*a_function)(void), CThreadPriority a_level)
 	}
 	else {
-		SetConsoleTextAttribute(hConsole, 0x0e);
+		SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 		std::cout  << "No USB peripheral found. Keyboard interaction only." << std::endl << std::endl;
-		SetConsoleTextAttribute(hConsole, 7);
+		SetConsoleTextAttribute(ubLog.hConsole, 7);
 	}
 #pragma endregion Serial_Setup
 
 #pragma region
 	//VICON-------------------------------------------
-	//#define output_stream if(!LogFile.empty()) ; else std::cout  
-
-	std::string HostName = "localhost:801"; //"134.225.86.151"
+	std::string HostName = "localhost:801";
 	unsigned int ClientBufferSize = 0;
 	std::string AxisMapping = "ZUp";
 
@@ -584,9 +576,9 @@ int main(int argc, char* argv[])
 		}
 	}
 	if (!viconConnected) {
-		SetConsoleTextAttribute(hConsole, 0x0e);
+		SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 		std::cout  << std::endl << "Unable to connect to VICON. Marker tracking disabled." << std::endl << std::endl;
-		SetConsoleTextAttribute(hConsole, 7);
+		SetConsoleTextAttribute(ubLog.hConsole, 7);
 	}
 	else {
 		// Enable some different data types
@@ -704,12 +696,12 @@ int main(int argc, char* argv[])
 	std::cout  << "Searching for Oculus Rift..." << std::endl;
 	if (!oculusVR.initVR())
 	{
-		SetConsoleTextAttribute(hConsole, 0x0e);
+		SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 		std::cout  << "Failed to initialize Oculus." << std::endl;
 		std::cout  << "Check HDMI and USB are connected" << std::endl << std::endl;
 		oculusInit = false;
 		cSleepMs(1000);
-		SetConsoleTextAttribute(hConsole, 7);
+		SetConsoleTextAttribute(ubLog.hConsole, 7);
 		std::cout  << "Opening in static screen mode." << std::endl << std::endl;
 	}
 	else {
@@ -722,14 +714,14 @@ int main(int argc, char* argv[])
 		// inialize buffers
 		if (!oculusVR.initVRBuffers(windowSize.w, windowSize.h))
 		{
-			SetConsoleTextAttribute(hConsole, 4);
+			SetConsoleTextAttribute(ubLog.hConsole, 4);
 			std::cout  << "Failed to initialize Oculus buffers. Check the headset view for troubleshooting tips." << std::endl;
 			oculusInit = false;
 			cSleepMs(1000);
 			oculusVR.destroyVR();
 			//renderContext.destroy();
 			//glfwTerminate();
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 		else {
 			oculusInit = true;
@@ -777,9 +769,9 @@ int main(int argc, char* argv[])
 
 		bool fileload = textureW->loadFromFile(RESOURCE_PATH("../resources/infinity.jpg"));
 		if (!fileload) {
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Warning: failed to load world texture. Check file location." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 		globe->setTexture(textureW);
 		globe->setUseTexture(true);
@@ -879,9 +871,9 @@ void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 
 void errorCallback(int a_error, const char* a_description)
 {
-	SetConsoleTextAttribute(hConsole, 4);
+	SetConsoleTextAttribute(ubLog.hConsole, 4);
 	std::cout  << "Error: " << a_description << std::endl;
-	SetConsoleTextAttribute(hConsole, 7);
+	SetConsoleTextAttribute(ubLog.hConsole, 7);
 }
 
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
@@ -917,10 +909,10 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread->start(MoveLeft, CTHREAD_PRIORITY_GRAPHICS);
 		}
 		else {
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Warning: Finish previous trial before next one." << std::endl;
 		}
-		SetConsoleTextAttribute(hConsole, 7);
+		SetConsoleTextAttribute(ubLog.hConsole, 7);
 	}
 
 	else if (a_key == GLFW_KEY_2) {
@@ -933,9 +925,9 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread->start(MoveRight, CTHREAD_PRIORITY_GRAPHICS);
 		}
 		else {
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Error: Finish previous trial before next one." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 	}
 	else if (a_key == GLFW_KEY_3) {
@@ -948,9 +940,9 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread->start(MoveRightSine, CTHREAD_PRIORITY_GRAPHICS);
 		}
 		else {
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Error: Finish previous trial before next one." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 	}
 	else if (a_key == GLFW_KEY_4) {
@@ -963,9 +955,9 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 			cubeThread->start(MoveLeftSine, CTHREAD_PRIORITY_GRAPHICS);
 		}
 		else {
-			SetConsoleTextAttribute(hConsole, 0x0e);
+			SetConsoleTextAttribute(ubLog.hConsole, 0x0e);
 			std::cout  << "Error: Finish previous trial before next one." << std::endl;
-			SetConsoleTextAttribute(hConsole, 7);
+			SetConsoleTextAttribute(ubLog.hConsole, 7);
 		}
 	}
 	else if (a_key == GLFW_KEY_5) {
@@ -1056,12 +1048,10 @@ void updateGraphics(void)
 	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
 	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.4);
 
-	//PrintCubePos();
 
 
 	if (ubiCube.m_serialOK) {
-		cQuaternion qRotation = quaternion;
-		//std::cout  << quaternion[0] << "," << quaternion[1] << "," << quaternion[2] << "," << quaternion[3] <<endl;
+		cQuaternion qRotation = ubiCube.m_quaternion;
 		cMatrix3d qRotMatrix;
 		cMatrix3d localRotA = my_cube->getLocalRot();
 		qRotation.toRotMat(qRotMatrix);
@@ -1074,74 +1064,14 @@ void updateGraphics(void)
 	// check for any OpenGL errors
 	GLenum err;
 	err = glGetError();
-	SetConsoleTextAttribute(hConsole, 4);
+	SetConsoleTextAttribute(ubLog.hConsole, 4);
 	if (err != GL_NO_ERROR) std::cout  << "Error:  %s\n" << gluErrorString(err);
-	SetConsoleTextAttribute(hConsole, 7);
+	SetConsoleTextAttribute(ubLog.hConsole, 7);
 }
 //------------------------------------------------------------------------------
 
 //------MOVE CUBE METHODS----------------------
 
-void UpdateIMUCube() {
-	std::vector<std::string> lastStringBuffer;
-	std::vector<std::string> stringBuffer;
-	static std::string string;
-
-	bool dataReceived = false;
-
-	std::cout  << "Serial: IMU thread created - Arduino mode." << std::endl;
-	while (true)
-	{
-		int buffer;
-
-		while (buffer = ubiCube.m_serialPort.readByte())
-		{
-			//	std::cout  << "Buffer enter";
-			if (!dataReceived) {
-				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
-			}
-
-			else {
-				if (buffer > 44 && buffer < 58) { // If 0 - 9 (or - .)
-					string += (char)buffer;
-				}
-				else if (buffer == 65) {
-					ubiCube.OnButtonUp(my_cube);
-				}
-				else if (buffer == 44) {
-					//std::cout  << string;
-					stringBuffer.push_back(string);
-					string = "";
-				}
-				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
-				{
-					//	std::cout  << " std::endline ";
-				}
-
-				else if (buffer = 59) {
-					std::string::size_type sz;
-
-					stringBuffer.push_back(string);
-					string = "";
-
-					lastStringBuffer = stringBuffer;
-					stringBuffer.resize(0);
-					if (lastStringBuffer.size() == 4) {
-						try {
-							for (int i = 0; i < lastStringBuffer.size(); i++) {
-								quaternion[i] = stod(lastStringBuffer[i], &sz);
-							}
-						}
-						catch (std::exception e) {}
-					}
-					else std::cout  << "Serial: Wrong size array of data." << std::endl;
-				}
-				else std::cout  << "?";
-			}
-		}
-	}
-
-}
 
 void MoveLeftSine() {
 	trialRunning = true;
@@ -1214,13 +1144,13 @@ void RotateCube(int x, int y, int z, double degrees)
 
 void PrintHMDPos() {
 	try {
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ",";
-		chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << std::endl;
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.y << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.x << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Position.z << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.w << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.x << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.y << ",";
+		ubLog.chaifile << oculusVR.m_trackingState.HeadPose.ThePose.Orientation.z << std::endl;
 	}
 	catch (std::exception e) {
 		std::cout  << "Couldn't find log file!" << std::endl;
@@ -1228,12 +1158,12 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
-	viconfile << (',');
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
-	viconfile << (',');
-	viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
-	viconfile << std::endl;
+	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
+	ubLog.viconfile << (',');
+	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
+	ubLog.viconfile << (',');
+	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
+	ubLog.viconfile << std::endl;
 }
 
 void PrintCubePos() {
@@ -1244,9 +1174,9 @@ void PrintCubePos() {
 	double targety = target_cube->getLocalPos().y();
 	double targetz = target_cube->getLocalPos().z();
 	edistance = sqrt(pow((targetx - myx), 2) + pow((targety - myy), 2) + pow((targetz - myz), 2));
-	cubefile << targetx << "," << targety << "," << targetz << ",";
-	cubefile << myx << "," << myy << "," << myz << ",";
-	cubefile << edistance << std::endl;
+	ubLog.cubefile << targetx << "," << targety << "," << targetz << ",";
+	ubLog.cubefile << myx << "," << myy << "," << myz << ",";
+	ubLog.cubefile << edistance << std::endl;
 }
 
 void createTrials(int total) {
@@ -1342,6 +1272,10 @@ void UpdateViconFrame() {
 			mycube_posZ = Marker1Z;
 		}
 	}
+}
+
+void UpdateMyCube() {
+	ubiCube.UpdateIMUCube();
 }
 
 
