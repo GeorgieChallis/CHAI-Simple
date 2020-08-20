@@ -38,10 +38,8 @@ void ubCube::UpdateIMUCube() {
 	while (true)
 	{
 		int buffer;
-
 		while (buffer = m_serialPort.readByte())
 		{
-			//	std::cout  << "Buffer enter";
 			if (!dataReceived) {
 				if (buffer = 59) { dataReceived = true; } //All 'packets' are ; terminated
 			}
@@ -54,18 +52,13 @@ void ubCube::UpdateIMUCube() {
 					OnButtonUp(m_cubeMesh);
 				}
 				else if (buffer == 44) {
-					//std::cout  << string;
 					stringBuffer.push_back(string);
 					string = "";
 				}
-				else if (buffer == 13 || buffer == 10) //13 CR or 10 LF
-				{
-					//	std::cout  << " std::endline ";
-				}
+				else if (buffer == 13 || buffer == 10) {/*endl*/}
 
 				else if (buffer = 59) {
 					std::string::size_type sz;
-
 					stringBuffer.push_back(string);
 					string = "";
 

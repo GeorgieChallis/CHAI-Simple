@@ -1,8 +1,10 @@
 #pragma once
 #include <fstream>
 #include <iostream>
-#include <time.h>
+#include <chrono>
+#include <ctime>
 #include <Windows.h>
+#include <string>
 
 class ubLogger {
 private:
@@ -13,8 +15,11 @@ public:
 	std::ofstream chaifile;
 	std::ofstream viconfile;
 	std::ofstream cubefile;
+	bool save;
 
 	ubLogger();
-	void logInit();
-
+	int LogInit();
+	void Error(std::string warning);
+	void Warn(std::string warning);
+	void Info(std::string warning);
 };
