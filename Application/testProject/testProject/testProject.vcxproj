@@ -23,11 +23,13 @@
     <ClCompile Include="src\ubCube.cpp" />
     <ClCompile Include="src\ubLogger.cpp" />
     <ClCompile Include="src\ubVicon.cpp" />
+    <ClCompile Include="src\ubTarget.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ubCube.h" />
     <ClInclude Include="src\ubLogger.h" />
     <ClInclude Include="src\ubVicon.h" />
+    <ClInclude Include="src\ubTarget.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

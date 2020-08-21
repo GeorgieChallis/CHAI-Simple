@@ -1,6 +1,6 @@
 #include "ubCube.h"
 
-ubCube::ubCube() {
+ubCube::ubCube(){
 	m_cubeTransparent = false;
 	m_serialOK = false;
 }
@@ -25,7 +25,6 @@ void ubCube::OnButtonUp(chai3d::cMesh *cube) {
 		m_cubeMesh->setUseCulling(true);
 	}
 }
-
 
 void ubCube::UpdateIMUCube() {
 	std::vector<std::string> lastStringBuffer;
@@ -79,5 +78,12 @@ void ubCube::UpdateIMUCube() {
 		}
 	}
 
+}
+
+void ubCube::SetTexture()
+{
+	// create a texture
+	m_texture = chai3d::cTexture2d::create();
+	//.... Need to get resource path string
 }
 

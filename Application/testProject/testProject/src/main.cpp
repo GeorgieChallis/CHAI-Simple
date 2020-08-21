@@ -1,4 +1,3 @@
-//-----------------------------------
 #pragma region
 #include <fstream>
 #include <iostream>
@@ -8,253 +7,32 @@
 #include <vector>
 #include <string.h>
 
-#include <cmath>
-
-#ifdef WIN32
-#include <conio.h>   // For _kbhit()
-#include <cstdio>   // For getchar()
-#include <windows.h> // For Sleep()
-#endif // WIN32
-
 #include <chai3d.h>
 //OpenGL Wrapper
 #include <GLFW/glfw3.h>
 //OCULUS SDK
 #include <COculus.h>
 //For VICON Code
-#include "DataStreamClient.h"
+
 // FOR C++ Serial Port Class
 #include "SerialPort.cpp"
 #include "Defaults.h"
 
 #include "ubLogger.h"
 #include "ubCube.h"
+#include "ubTarget.h"
+#include "ubVicon.h"
 #pragma endregion Includes
+
+using namespace chai3d;
 
 #define RESOURCE_PATH(p)	(char*)((resourceRoot+std::string(p)).c_str())
 
-#pragma region
-//-Namespaces-------------------------------------------------------------------
-using namespace chai3d;
-using namespace ViconDataStreamSDK::CPP;
-//------------------------------------------------------------------------------
-#pragma  endregion Namespaces
-
-#pragma region
-static bool trialRunning = false;
-static int numTrials = 0;
-double edistance; //Euclidean distance between cubes
-
-struct trial {int moveType;};
-std::vector<trial> trialList;
-#pragma endregion Trial Data
-
-#pragma region
-//---------------------------------------------------------------------------
-// DECLARED VARIABLES
-//---------------------------------------------------------------------------
-// a world that contains all objects of the virtual environment
-cWorld* world;
-// a camera to render the world in the window display
-cCamera* camera;
-// a light source to illuminate the objects in the world
-cSpotLight *light;
-// a few shape primitives that compose our scene
-cMesh* my_cube;
-cMesh* target_cube;
-
-// a flag to indicate if the haptic simulation currently running
-bool simulationRunning = false;
-// a flag to indicate if the haptic simulation has terminated
-bool simulationFinished = true;
-
-// a handle to window display context
-GLFWwindow* window = NULL;
-// current width of window
-int width = 0;
-// current height of window
-int height = 0;
-// swap interval for the display context (vertical synchronization)
-int swapInterval = 1;
-
-cThread *cubeThread;
-cThread *serialThread;
-
-//Values for changing the visible cube's position/size
-static double mycube_posX = 0.0;
-static double mycube_posY = 0.0;
-static double mycube_posZ = 0.0;
-
-static double targetcube_posX = 0.0;
-static double targetcube_posY = 0.0;
-static double targetcube_posZ = 0.0;
-
-//-----------------------------------------------------------------
-
-#pragma endregion Global variables - CHAI
-
-#pragma region
-//----------------------------------------
-// SETUP RIFT
-//----------------------------------------
-cOVRRenderContext renderContext;
-cOVRDevice oculusVR;
-bool oculusInit = false;
-#pragma endregion Global variables - Oculus
-
-#pragma region
-//---------
-//  VICON
-//---------
-cThread *viconThread;
-static bool viconConnected = false;
-Output_GetMarkerGlobalTranslation _Output_GetMarkerGlobalTranslation;
-Output_GetLabeledMarkerGlobalTranslation _Output_GetLabeledMarkerGlobalTranslation;
-Output_GetUnlabeledMarkerGlobalTranslation _Output_GetUnlabeledMarkerGlobalTranslation;
-
-ViconDataStreamSDK::CPP::Client MyClient;
-
-std::string Adapt(const bool i_Value)
-{
-	return i_Value ? "True" : "False";
-}
-
-std::string Adapt(const TimecodeStandard::Enum i_Standard)
-{
-	switch (i_Standard)
-	{
-	default:
-	case TimecodeStandard::None:
-		return "0";
-	case TimecodeStandard::PAL:
-		return "1";
-	case TimecodeStandard::NTSC:
-		return "2";
-	case TimecodeStandard::NTSCDrop:
-		return "3";
-	case TimecodeStandard::Film:
-		return "4";
-	case TimecodeStandard::NTSCFilm:
-		return "5";
-	case TimecodeStandard::ATSC:
-		return "6";
-	}
-}
-
-std::string Adapt(const Direction::Enum i_Direction)
-{
-	switch (i_Direction)
-	{
-	case Direction::Forward:
-		return "Forward";
-	case Direction::Backward:
-		return "Backward";
-	case Direction::Left:
-		return "Left";
-	case Direction::Right:
-		return "Right";
-	case Direction::Up:
-		return "Up";
-	case Direction::Down:
-		return "Down";
-	default:
-		return "Unknown";
-	}
-}
-
-std::string Adapt(const DeviceType::Enum i_DeviceType)
-{
-	switch (i_DeviceType)
-	{
-	case DeviceType::ForcePlate:
-		return "ForcePlate";
-	case DeviceType::Unknown:
-	default:
-		return "Unknown";
-	}
-}
-
-std::string Adapt(const Unit::Enum i_Unit)
-{
-	switch (i_Unit)
-	{
-	case Unit::Meter:
-		return "Meter";
-	case Unit::Volt:
-		return "Volt";
-	case Unit::NewtonMeter:
-		return "NewtonMeter";
-	case Unit::Newton:
-		return "Newton";
-	case Unit::Kilogram:
-		return "Kilogram";
-	case Unit::Second:
-		return "Second";
-	case Unit::Ampere:
-		return "Ampere";
-	case Unit::Kelvin:
-		return "Kelvin";
-	case Unit::Mole:
-		return "Mole";
-	case Unit::Candela:
-		return "Candela";
-	case Unit::Radian:
-		return "Radian";
-	case Unit::Steradian:
-		return "Steradian";
-	case Unit::MeterSquared:
-		return "MeterSquared";
-	case Unit::MeterCubed:
-		return "MeterCubed";
-	case Unit::MeterPerSecond:
-		return "MeterPerSecond";
-	case Unit::MeterPerSecondSquared:
-		return "MeterPerSecondSquared";
-	case Unit::RadianPerSecond:
-		return "RadianPerSecond";
-	case Unit::RadianPerSecondSquared:
-		return "RadianPerSecondSquared";
-	case Unit::Hertz:
-		return "Hertz";
-	case Unit::Joule:
-		return "Joule";
-	case Unit::Watt:
-		return "Watt";
-	case Unit::Pascal:
-		return "Pascal";
-	case Unit::Lumen:
-		return "Lumen";
-	case Unit::Lux:
-		return "Lux";
-	case Unit::Coulomb:
-		return "Coulomb";
-	case Unit::Ohm:
-		return "Ohm";
-	case Unit::Farad:
-		return "Farad";
-	case Unit::Weber:
-		return "Weber";
-	case Unit::Tesla:
-		return "Tesla";
-	case Unit::Henry:
-		return "Henry";
-	case Unit::Siemens:
-		return "Siemens";
-	case Unit::Becquerel:
-		return "Becquerel";
-	case Unit::Gray:
-		return "Gray";
-	case Unit::Sievert:
-		return "Sievert";
-	case Unit::Katal:
-		return "Katal";
-
-	case Unit::Unknown:
-	default:
-		return "Unknown";
-	}
-}
-
+#ifdef WIN32
+#include <conio.h>   // For _kbhit()
+#include <cstdio>   // For getchar()
+#include <windows.h> // For Sleep()
+#endif // WIN32
 #ifdef WIN32
 bool Hit()
 {
@@ -267,15 +45,47 @@ bool Hit()
 	return hit;
 }
 #endif
-#pragma endregion Global variables - VICON
+
+static bool trialRunning = false;
+static int numTrials = 0;
+double edistance; //Euclidean distance between cubes
+
+struct trial {int moveType;};
+std::vector<trial> trialList;
+
+cWorld* world; // a world that contains all objects of the virtual environment
+cCamera* camera; // a camera to render the world in the window display
+cSpotLight *light; // a light source to illuminate the objects in the world
+cMesh* my_cube; 
+cMesh* target_cube;
+
+bool simulationRunning = false; // a flag to indicate if the haptic simulation currently running
+bool simulationFinished = true; // a flag to indicate if the haptic simulation has terminated
+
+GLFWwindow* window = NULL; // a handle to window display context
+
+int width = 0; // current width of window
+int height = 0; // current height of window
+int swapInterval = 1; // swap interval for the display context (vertical synchronization)
+
+cThread *cubeThread;
+cThread *serialThread;
+cThread *viconThread;
+
+// SETUP RIFT
+cOVRRenderContext renderContext;
+cOVRDevice oculusVR;
+bool oculusInit = false;
+
 
 static ubCube ubiCube;
 ubLogger ubLog;
+ubTarget ubiTarget;
+ubVicon ubiVicon;
+
+#pragma endregion Global variables - VICON
 
 #pragma region
-//------------------------------------------------------------------------------
-// DECLARED FUNCTIONS
-//------------------------------------------------------------------------------
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
 
@@ -290,6 +100,7 @@ void updateGraphics(void);
 
 void ChaiWorldSetup();
 void ChaiShapeSetup();
+void CreateTrials(int);
 
 //Print headset position to file
 void PrintHMDPos(void);
@@ -309,7 +120,6 @@ void MoveDirection(char axis, double amnt);
 // this function closes the application
 void close(void);
 
-//==============================================================================
 #pragma endregion Declared functions
 
 int main(int argc, char* argv[])
@@ -319,15 +129,7 @@ int main(int argc, char* argv[])
 
 	//Introductory text and filename/trial nums
 	numTrials = ubLog.LogInit();
-
-	if (numTrials > 0) {
-		for (int i = 0; i < numTrials; i++) {
-			trial newTrial;
-			newTrial.moveType = rand() % 4 + 1;
-			std::cout << "i: " << i << ", trials: " << newTrial.moveType << std::endl;
-			trialList.push_back(newTrial);
-		}
-	}
+	CreateTrials(numTrials);
 
 	ChaiWorldSetup();
 	ChaiShapeSetup();
@@ -339,9 +141,9 @@ int main(int argc, char* argv[])
 		bool fileload = texture->loadFromFile(RESOURCE_PATH("../resources/brick-color.png"));
 		if (!fileload)
 		{
-#if defined(_MSVC)
+	#if defined(_MSVC)
 			fileload = texture->loadFromFile("../../../bin/resources/brick-color.png");
-#endif
+	#endif
 		}
 		if (!fileload)
 		{
@@ -380,30 +182,29 @@ int main(int argc, char* argv[])
 	}
 
 	// Spider object as child of main cube:
-	cMultiMesh* object;
-	object = new cMultiMesh();
+	cMultiMesh* spider;
+	spider = new cMultiMesh();
 	// add object to cube
-	my_cube->addChild(object);
-	object->setLocalPos(0, 0, 0.0);
+	my_cube->addChild(spider);
+	spider->setLocalPos(0, 0, 0.0);
 	// load an object file
-	bool fileload = object->loadFromFile(RESOURCE_PATH("../resources/Spooder.obj"));
+	bool fileload = spider->loadFromFile(RESOURCE_PATH("../resources/Spooder.obj"));
 	if (!fileload)
 	{
 #if defined(_MSVC)
-		fileload = object->loadFromFile("../../../bin/resources/Spooder.obj");
+		fileload = spider->loadFromFile("../../../bin/resources/Spooder.obj");
 #endif
 	}
 	if (!fileload)
 	{
 		ubLog.Warn("Error - 3D Model failed to load correctly");
 	}
-
 	// disable culling so that faces are rendered on both sides
-	object->setUseCulling(false);
+	spider->setUseCulling(false);
 
 	// resize object to screen
-	double size = cSub(object->getBoundaryMax(), object->getBoundaryMin()).length();
-	object->scale(0.02);
+	double size = cSub(spider->getBoundaryMax(), spider->getBoundaryMin()).length();
+	spider->scale(0.02);
 
 #pragma endregion CHAIShape_Setup
 
@@ -436,12 +237,12 @@ int main(int argc, char* argv[])
 
 	for (int i = 0; i != 3; ++i) // repeat to check disconnecting doesn't wreck next connect
 	{
-		while (!MyClient.IsConnected().Connected)
+		while (!ubiVicon.MyClient.IsConnected().Connected)
 		{
 			// Direct connection
-			viconConnected = (MyClient.Connect(HostName).Result == Result::Success);
+			ubiVicon.viconConnected = (ubiVicon.MyClient.Connect(HostName).Result == ViconDataStreamSDK::CPP::Result::Success);
 
-			if (!viconConnected)
+			if (!ubiVicon.viconConnected)
 			{
 				connectAttempts++;
 				std::cout  << ".";
@@ -450,45 +251,45 @@ int main(int argc, char* argv[])
 #ifdef WIN32
 			Sleep(1000);
 #else
-			sleep(1);
+			Sleep(1);
 #endif
 		}
 	}
-	if (!viconConnected) {
+	if (!ubiVicon.viconConnected) {
 		ubLog.Warn("Unable to connect to VICON. Marker tracking disabled.");
 	}
 	else {
 		// Enable some different data types
-		MyClient.EnableSegmentData();
-		MyClient.EnableMarkerData();
-		MyClient.EnableUnlabeledMarkerData();
+		ubiVicon.MyClient.EnableSegmentData();
+		ubiVicon.MyClient.EnableMarkerData();
+		ubiVicon.MyClient.EnableUnlabeledMarkerData();
 
 		// Set the streaming mode
-		MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
+		ubiVicon.MyClient.SetStreamMode(ViconDataStreamSDK::CPP::StreamMode::ServerPush);
 
 		// Set the global up axis
-		MyClient.SetAxisMapping(Direction::Forward,
-			Direction::Left,
-			Direction::Up); // Z-up
+		ubiVicon.MyClient.SetAxisMapping(ViconDataStreamSDK::CPP::Direction::Forward,
+			ViconDataStreamSDK::CPP::Direction::Left,
+			ViconDataStreamSDK::CPP::Direction::Up); // Z-up
 		if (AxisMapping == "YUp")
 		{
-			MyClient.SetAxisMapping(Direction::Forward,
-				Direction::Up,
-				Direction::Right); // Y-up
+			ubiVicon.MyClient.SetAxisMapping(ViconDataStreamSDK::CPP::Direction::Forward,
+				ViconDataStreamSDK::CPP::Direction::Up,
+				ViconDataStreamSDK::CPP::Direction::Right); // Y-up
 		}
 		else if (AxisMapping == "XUp")
 		{
-			MyClient.SetAxisMapping(Direction::Up,
-				Direction::Forward,
-				Direction::Left); // Y-up
+			ubiVicon.MyClient.SetAxisMapping(ViconDataStreamSDK::CPP::Direction::Up,
+				ViconDataStreamSDK::CPP::Direction::Forward,
+				ViconDataStreamSDK::CPP::Direction::Left); // Y-up
 		}
-		Output_GetAxisMapping _Output_GetAxisMapping = MyClient.GetAxisMapping();
-		std::cout  << "Vicon: Axis Mapping: X-" << Adapt(_Output_GetAxisMapping.XAxis)
-			<< " Y-" << Adapt(_Output_GetAxisMapping.YAxis)
-			<< " Z-" << Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
+		ViconDataStreamSDK::CPP::Output_GetAxisMapping _Output_GetAxisMapping = ubiVicon.MyClient.GetAxisMapping();
+		std::cout  << "Vicon: Axis Mapping: X-" << ubiVicon.Adapt(_Output_GetAxisMapping.XAxis)
+			<< " Y-" << ubiVicon.Adapt(_Output_GetAxisMapping.YAxis)
+			<< " Z-" << ubiVicon.Adapt(_Output_GetAxisMapping.ZAxis) << std::endl;
 		if (ClientBufferSize > 0)
 		{
-			MyClient.SetBufferSize(ClientBufferSize);
+			ubiVicon.MyClient.SetBufferSize(ClientBufferSize);
 			std::cout  << "Vicon: Setting client buffer size to " << ClientBufferSize << std::endl;
 		}
 		//New thread to update VICON position
@@ -498,9 +299,7 @@ int main(int argc, char* argv[])
 #pragma endregion VICON_Setup
 
 #pragma region
-	//--------------------------------------------------------------------------
 	// OPEN GL - WINDOW DISPLAY
-	//--------------------------------------------------------------------------
 	// initialize GLFW library
 	ubLog.Info("Checking for OpenGL libraries...");
 	if (!glfwInit())
@@ -529,8 +328,7 @@ int main(int argc, char* argv[])
 	window = glfwCreateWindow(w, h, "CHAI3D Test", NULL, NULL);
 	if (!window)
 	{
-		ubLog.Error("Failed to create window.");
-		std::cout  << "Please close existing windows and retry" << std::endl;
+		ubLog.Error("Failed to create window.\n Please close existing windows and retry");
 		cSleepMs(1000);
 		glfwTerminate();
 		return 1;
@@ -660,7 +458,7 @@ int main(int argc, char* argv[])
 			glfwGetFramebufferSize(window, &width, &height);
 
 			oculusVR.onRenderStart();
-			if ((_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
+			if ((ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0) && (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0) && (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0)) {
 				PrintHMDPos();
 				PrintMarkerPos();
 			}
@@ -752,7 +550,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_1) {
 		//Start trial 1
 		std::cout  << "Starting Trial 1: Right to Left" << std::endl;
-		targetcube_posX = 0.5;
+		ubiTarget.posX = 0.5;
 		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
@@ -767,7 +565,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_2) {
 		//Start trial 2
 		std::cout  << "Starting Trial 2: Left to Right" << std::endl;
-		targetcube_posX = -0.5;
+		ubiTarget.posX = -0.5;
 		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
@@ -780,7 +578,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_3) {
 		//Start trial 2
 		std::cout  << "Starting Trial 3: Left to Right (Sine Wave)" << std::endl;
-		targetcube_posX = -0.5;
+		ubiTarget.posX = -0.5;
 		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
@@ -793,7 +591,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	else if (a_key == GLFW_KEY_4) {
 		//Start trial 2
 		std::cout  << "Starting Trial 4: Right to Left (Sine Wave)" << std::endl;
-		targetcube_posX = 0.5;
+		ubiTarget.posX = 0.5;
 		//cube_posZ = 0.2;
 		if (!trialRunning) {
 			cubeThread = new cThread();
@@ -853,16 +651,16 @@ void close(void)
 		ubiCube.m_serialPort.disconnect();
 	}
 
-	if (viconConnected) {
-		MyClient.DisableSegmentData();
-		MyClient.DisableMarkerData();
-		MyClient.DisableUnlabeledMarkerData();
-		MyClient.DisableDeviceData();
+	if (ubiVicon.viconConnected) {
+		ubiVicon.MyClient.DisableSegmentData();
+		ubiVicon.MyClient.DisableMarkerData();
+		ubiVicon.MyClient.DisableUnlabeledMarkerData();
+		ubiVicon.MyClient.DisableDeviceData();
 
 		// Disconnect and dispose
 		int t = clock();
 		ubLog.Info("Disconnecting VICON...");
-		MyClient.Disconnect();
+		ubiVicon.MyClient.Disconnect();
 		int dt = clock() - t;
 		double secs = (double)(dt) / (double)CLOCKS_PER_SEC;
 		std::cout  << " Disconnect time = " << secs << " secs" << std::endl;
@@ -875,6 +673,8 @@ void close(void)
 	while (!simulationFinished) { cSleepMs(100); }
 
 	// delete resources
+	delete light;
+	delete camera;
 	delete world;
 }
 
@@ -883,14 +683,13 @@ void close(void)
 void updateGraphics(void)
 {
 	// RENDER SCENE
-
 	// render world
 	camera->renderView(width, height);
 
 	//set cube pos
-	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
-	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ+1.4);
-
+	my_cube->setLocalPos(ubiCube.posX, ubiCube.posY, ubiCube.posZ);
+	target_cube->setLocalPos(ubiTarget.posX, ubiTarget.posY, ubiTarget.posZ+1.4);
+	
 	if (ubiCube.m_serialOK) {
 		cQuaternion qRotation = ubiCube.m_quaternion;
 		cMatrix3d qRotMatrix;
@@ -913,9 +712,9 @@ void updateGraphics(void)
 //------MOVE CUBE METHODS----------------------
 void MoveLeftSine() {
 	trialRunning = true;
-	while (targetcube_posX > -0.5) {
-		targetcube_posX -= 0.0005;
-		targetcube_posZ = 0.1*(std::sin(10 * targetcube_posX));
+	while (ubiTarget.posX > -0.5) {
+		ubiTarget.posX -= 0.0005;
+		ubiTarget.posZ = 0.1*(std::sin(10 * ubiTarget.posX));
 		cSleepMs(1);
 	}
 	trialRunning = false;
@@ -924,9 +723,9 @@ void MoveLeftSine() {
 
 void MoveRightSine() {
 	trialRunning = true;
-	while (targetcube_posX < 0.5) {
-		targetcube_posX += 0.0005;
-		targetcube_posZ = 0.1*(sin(10 * targetcube_posX));
+	while (ubiTarget.posX < 0.5) {
+		ubiTarget.posX += 0.0005;
+		  ubiTarget.posZ = 0.1*(sin(10 *   ubiTarget.posX));
 		cSleepMs(1);
 	}
 	trialRunning = false;
@@ -935,8 +734,8 @@ void MoveRightSine() {
 
 void MoveLeft() {
 	trialRunning = true;
-	while (targetcube_posX > -0.5) {
-		targetcube_posX -= 0.0005;
+	while (  ubiTarget.posX > -0.5) {
+		  ubiTarget.posX -= 0.0005;
 		cSleepMs(1);
 	}
 	trialRunning = false;
@@ -945,8 +744,8 @@ void MoveLeft() {
 
 void MoveRight() {
 	trialRunning = true;
-	while (targetcube_posX < 0.5) {
-		targetcube_posX += 0.0005;
+	while (  ubiTarget.posX < 0.5) {
+		  ubiTarget.posX += 0.0005;
 		cSleepMs(1);
 	}
 	trialRunning = false;
@@ -955,15 +754,15 @@ void MoveRight() {
 
 void MoveDirection(char axis, double amnt) {
 	if (axis == 'x') {
-		mycube_posX += amnt;
+		ubiCube.posX += amnt;
 		std::cout  << amnt;
 	}
 	else if (axis == 'y') {
-		mycube_posY += amnt;
+		ubiCube.posY += amnt;
 		std::cout  << amnt;
 	}
 	else if (axis == 'z') {
-		mycube_posZ += amnt;
+		ubiCube.posZ += amnt;
 		std::cout  << "x";
 	}
 	else return;
@@ -997,11 +796,11 @@ void PrintHMDPos() {
 }
 
 void PrintMarkerPos() {
-	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
+	ubLog.viconfile << (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[0]);
 	ubLog.viconfile << (',');
-	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
+	ubLog.viconfile << (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[1]);
 	ubLog.viconfile << (',');
-	ubLog.viconfile << (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
+	ubLog.viconfile << (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[2]);
 	ubLog.viconfile << std::endl;
 }
 
@@ -1018,7 +817,16 @@ void PrintCubePos() {
 	ubLog.cubefile << edistance << std::endl;
 }
 
-void createTrials(int total) {
+void CreateTrials(int total) {
+	numTrials = total;
+	if (numTrials > 0) {
+		for (int i = 0; i < numTrials; i++) {
+			trial newTrial;
+			newTrial.moveType = rand() % 4 + 1;
+			std::cout << "i: " << i << ", trials: " << newTrial.moveType << std::endl;
+			trialList.push_back(newTrial);
+		}
+	}
 }
 
 void UpdateViconFrame() {
@@ -1030,7 +838,7 @@ void UpdateViconFrame() {
 #endif
 	{
 		// Get a frame
-		while (MyClient.GetFrame().Result != Result::Success)
+		while (ubiVicon.MyClient.GetFrame().Result != ViconDataStreamSDK::CPP::Result::Success)
 		{
 #ifdef WIN32
 			Sleep(200);
@@ -1041,62 +849,60 @@ void UpdateViconFrame() {
 		}
 
 		// Get the frame number
-		Output_GetFrameNumber _Output_GetFrameNumber = MyClient.GetFrameNumber();
+		ViconDataStreamSDK::CPP::Output_GetFrameNumber _Output_GetFrameNumber = ubiVicon.MyClient.GetFrameNumber();
 		// Count the number of subjects
-		unsigned int SubjectCount = MyClient.GetSubjectCount().SubjectCount;
+		unsigned int SubjectCount = ubiVicon.MyClient.GetSubjectCount().SubjectCount;
 
 		for (unsigned int SubjectIndex = 0; SubjectIndex < SubjectCount; ++SubjectIndex)
 		{
 			// Get the subject name
-			std::string SubjectName = MyClient.GetSubjectName(SubjectIndex).SubjectName;
+			std::string SubjectName = ubiVicon.MyClient.GetSubjectName(SubjectIndex).SubjectName;
 
 			// Count the number of markers
-			unsigned int MarkerCount = MyClient.GetMarkerCount(SubjectName).MarkerCount;
+			unsigned int MarkerCount = ubiVicon.MyClient.GetMarkerCount(SubjectName).MarkerCount;
 			for (unsigned int MarkerIndex = 0; MarkerIndex < MarkerCount; ++MarkerIndex)
 			{
 				// Get the marker name
-				std::string MarkerName = MyClient.GetMarkerName(SubjectName, MarkerIndex).MarkerName;
+				std::string MarkerName = ubiVicon.MyClient.GetMarkerName(SubjectName, MarkerIndex).MarkerName;
 
 				// Get the global marker translation
-				_Output_GetMarkerGlobalTranslation =
-					MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
+				ubiVicon._Output_GetMarkerGlobalTranslation =
+					ubiVicon.MyClient.GetMarkerGlobalTranslation(SubjectName, MarkerName);
 			}
 		}
 		// Get the unlabeled markers
-		unsigned int UnlabeledMarkerCount = MyClient.GetUnlabeledMarkerCount().MarkerCount;
+		unsigned int UnlabeledMarkerCount = ubiVicon.MyClient.GetUnlabeledMarkerCount().MarkerCount;
 		std::cout  << "Unlabeled Markers (" << UnlabeledMarkerCount << "):" << std::endl;
 		//for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
 		for (unsigned int UnlabeledMarkerIndex = 0; UnlabeledMarkerIndex < 1; ++UnlabeledMarkerIndex)
 		{
 			// Get the global marker translation
-			_Output_GetUnlabeledMarkerGlobalTranslation =
-				MyClient.GetUnlabeledMarkerGlobalTranslation(UnlabeledMarkerIndex);
-			if (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0 && _Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0){
-				double HMDX = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] / 1000);
-				double HMDY = -(_Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
-				double HMDZ = (_Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
+			ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation =
+				ubiVicon.MyClient.GetUnlabeledMarkerGlobalTranslation(UnlabeledMarkerIndex);
+			if (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] != 0 && ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] != 0 && ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] != 0){
+				double HMDX = -(ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[0] / 1000);
+				double HMDY = -(ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
+				double HMDZ = (ubiVicon._Output_GetUnlabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
 			}
 		}
 
 		// Get the labeled markers
-		unsigned int LabeledMarkerCount = MyClient.GetLabeledMarkerCount().MarkerCount;
+		unsigned int LabeledMarkerCount = ubiVicon.MyClient.GetLabeledMarkerCount().MarkerCount;
 		std::cout  << "    Labeled Markers (" << LabeledMarkerCount << "):" << std::endl;
 		//for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < LabeledMarkerCount; ++LabeledMarkerIndex)
 		for (unsigned int LabeledMarkerIndex = 0; LabeledMarkerIndex < 1; ++LabeledMarkerIndex)
 		{
 			// Get the global marker translation
-			_Output_GetLabeledMarkerGlobalTranslation =
-				MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
-			double Marker1X = -(_Output_GetLabeledMarkerGlobalTranslation.Translation[0] / 1000);
-			double Marker1Y = -(_Output_GetLabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
-			double Marker1Z = (_Output_GetLabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
-
-
+			ubiVicon._Output_GetLabeledMarkerGlobalTranslation =
+				ubiVicon.MyClient.GetLabeledMarkerGlobalTranslation(LabeledMarkerIndex);
+			double Marker1X = -(ubiVicon._Output_GetLabeledMarkerGlobalTranslation.Translation[0] / 1000);
+			double Marker1Y = -(ubiVicon._Output_GetLabeledMarkerGlobalTranslation.Translation[1] / 1000); //- 1.5;
+			double Marker1Z = (ubiVicon._Output_GetLabeledMarkerGlobalTranslation.Translation[2] / 1000);// - 1;
 
 			std::cout  << "Marker 1: XYZ = " << Marker1X << ", " << Marker1Y << ", " << Marker1Z << "!" << std::endl;
-			mycube_posX = Marker1X;
-			mycube_posY = Marker1Y;
-			mycube_posZ = Marker1Z;
+			ubiCube.posX = Marker1X;
+			ubiCube.posY = Marker1Y;
+			ubiCube.posZ = Marker1Z;
 		}
 	}
 }
@@ -1107,12 +913,10 @@ void UpdateMyCube() {
 
 void ChaiWorldSetup() {
 	// WORLD - CAMERA - LIGHTING
-	// create a new world.
-	world = new cWorld();
-	// set the background color of the environment
-	world->m_backgroundColor.setBlack();
-	// create a camera and insert it into the virtual world
-	camera = new cCamera(world);
+	world = new cWorld(); // create a new world.
+	world->m_backgroundColor.setBlack(); // set the background color of the environment	
+
+	camera = new cCamera(world); // create a camera and insert it into the virtual world
 	world->addChild(camera);
 	camera->set(
 		cVector3d(0, 1, 1.3),       // Local Position of camera.
@@ -1124,30 +928,24 @@ void ChaiWorldSetup() {
 	camera->setClippingPlanes(0.01, 10.0);
 	camera->setUseMultipassTransparency(true);
 
-	// create a directional light source
-	light = new cSpotLight(world);
-	// insert light source inside world
-	world->addChild(light);
-	// enable light source
-	light->setEnabled(true);
-	// define position of light beam
-	light->setLocalPos(0.0, 2.0, 1.0);
-	// define the direction of the light beam
-	light->setDir(0, -1, 0);
-	// set light cone half angle
-	light->setCutOffAngleDeg(50);
+	light = new cSpotLight(world); 	// create a directional light source
+	world->addChild(light); 	// insert light source inside world
+	light->setEnabled(true); 	// enable light source
+	light->setLocalPos(0.0, 2.0, 1.0); 	// define position of light beam
+	light->setDir(0, -1, 0); 	// define the direction of the light beam
+	light->setCutOffAngleDeg(50); 	// set light cone half angle
 }
 
 void ChaiShapeSetup() {
 	// CREATING SHAPES
 	my_cube = new cMesh();
 	world->addChild(my_cube);
-	my_cube->setLocalPos(mycube_posX, mycube_posY, mycube_posZ);
+	my_cube->setLocalPos(ubiCube.posX, ubiCube.posY, ubiCube.posZ);
 	chai3d::cCreateBox(my_cube, ubiCube.m_meshSize, ubiCube.m_meshSize, ubiCube.m_meshSize);
 
 	target_cube = new cMesh();
 	world->addChild(target_cube);
-	target_cube->setLocalPos(targetcube_posX, targetcube_posY, targetcube_posZ);
+	target_cube->setLocalPos(  ubiTarget.posX,   ubiTarget.posY,   ubiTarget.posZ);
 	chai3d::cCreateBox(target_cube, ubiCube.m_meshSize, ubiCube.m_meshSize, ubiCube.m_meshSize);
 
 	target_cube->setTransparencyLevel(0.3);

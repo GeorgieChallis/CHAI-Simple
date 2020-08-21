@@ -9,17 +9,20 @@ public:
 	double posX;
 	double posY;
 	double posZ;
+	double m_quaternion[4];
 	
 	SerialPort m_serialPort;
-	chai3d::cMesh *m_cubeMesh;
-	bool m_cubeTransparent;
 	bool m_serialOK;
-	double m_quaternion[4];
+
+	chai3d::cMesh *m_cubeMesh;
+	chai3d::cTexture2dPtr m_texture;
+	bool m_cubeTransparent;
 	double m_meshSize = 0.2;
 
 	ubCube();
 	void CallMotor(int);
 	void OnButtonUp(chai3d::cMesh *cube);
 	void UpdateIMUCube();
+	void SetTexture();
 };
 
