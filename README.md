@@ -1,6 +1,6 @@
 # Final Year Project Experimentation Area
 
-<img src="https://github.com/GeorgieChallis/CHAI-Simple/blob/master/imgs/3178ef15-3c8f-42af-bab2-0ccd563d2f55_rw_600.png" width="600">
+<img src="https://github.com/GeorgieChallis/CHAI-Simple/blob/master/imgs/fyp-test.gif" width="600">
 
 The UbiCube framework consists of software to interface between movement sensors/microcontrollers, OpenGL graphics with CHAI3D C++ haptics libraries, VICON motion capture and VR (Oculus Rift) to enable creation of virtual environments that work with different hardware setups. 
 
